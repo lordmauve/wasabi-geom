@@ -1,0 +1,7 @@
+syntax: glob
+*.pyc
+*.swp
+doc/_build
+build
+wasabi.geom.egg-info
+dist
