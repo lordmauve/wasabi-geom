@@ -1,5 +1,3 @@
-import math
-
 from collections import namedtuple
 
 
@@ -20,6 +18,15 @@ class BasePolygon(object):
 
     Operations defined on a set of points.
     """
+
+    def get_aabb(self):
+        """Return the axis-aligned bounding box for this polygon."""
+        xs, ys = zip(*self.points)
+        l = min(xs)
+        r = max(xs)
+        b = min(ys)
+        t = max(ys)
+        return Rect(l, r, b, t)
 
     def translate(self, v):
         """Return a translated instance of this polygon."""
@@ -262,9 +269,9 @@ class Rect(BasePolygon, namedtuple('BaseRect', 'l r b t')):
 
         """
         xs, ys = zip(*points)
-        lo = (min(xs), min(ys))
-        hi = (max(xs), max(ys))
-        return cls(lo, hi)
+        l, r = min(xs), max(xs)
+        b, t = min(ys), max(ys)
+        return cls(l, r, b, t)
 
     @property
     def points(self):
@@ -285,6 +292,10 @@ class Rect(BasePolygon, namedtuple('BaseRect', 'l r b t')):
             edges.append(p - last)
             last = p
         return edges
+
+    def get_aabb(self):
+        """Return the axis-aligned bounding box of the Rect - ie. self."""
+        return self
 
     def contains(self, p):
         """Return True if the point p is within the Rect."""
