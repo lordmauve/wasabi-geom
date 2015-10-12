@@ -1,9 +1,9 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 
 setup(
     name='wasabi.geom',
-    version='0.1.2',
+    version='0.1.3',
     description="2D vector, line and polygon classes, and a spatial hash implementation",
     long_description=open('README.rst').read(),
     author='Daniel Pope',
