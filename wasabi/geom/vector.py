@@ -25,11 +25,22 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-
 from __future__ import division
 
+import sys
 import math
+
+
+def func_name(f):
+    if sys.version_info < (3,):
+        return f.func_name
+    return f.__name__
+
+
+def func_doc(f):
+    if sys.version_info < (3,):
+        return f.func_doc
+    return f.__doc__
 
 
 def cached(func):
@@ -40,7 +51,7 @@ def cached(func):
             The getter function to decorate.
 
     """
-    cached_name = "_cached_%s" % func.func_name
+    cached_name = "_cached_%s" % func_name(func)
 
     # The keywords 'getattr' and 'cached_name' are used to optimise the common
     # case (return cached value) by bringing the used names to local scope.
@@ -56,10 +67,10 @@ def cached(func):
         assert not hasattr(self, cached_name)
         setattr(self, cached_name, value)
 
-    fget.func_name = "get_" + func.func_name
-    fset.func_name = "set_" + func.func_name
+    fget.func_name = "get_" + func_name(func)
+    fset.func_name = "set_" + func_name(func)
 
-    return property(fget, fset, doc=func.func_doc)
+    return property(fget, fset, doc=func_doc(func))
 
 
 class Vector(tuple):
@@ -289,7 +300,7 @@ class Vector(tuple):
         """
         if self.is_zero:
             return Vector((0, 1))
-        return self.normalised() 
+        return self.normalised()
 
     safe_normalized = safe_normalised
 
@@ -380,7 +391,7 @@ class Matrix(object):
 
         t = M * v
 
-    
+
 
     """
     __slots__ = ('x11', 'x12', 'x21', 'x22')
@@ -390,7 +401,7 @@ class Matrix(object):
         self.x12 = x12
         self.x21 = x21
         self.x22 = x22
-    
+
     def __mul__(self, vec):
         """Multiple a vector by this matrix."""
         return Vector((
