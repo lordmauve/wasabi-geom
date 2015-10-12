@@ -9,12 +9,13 @@ setup(
     author='Daniel Pope',
     author_email='mauve@mauveweb.co.uk',
     url='https://bitbucket.org/lordmauve/wasabi-geom',
-    packages=find_packages(),
+    packages=['wasabi', 'wasabi.geom'],
     namespace_packages=['wasabi'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: BSD License',
-        'Programming Language :: Python :: 2 :: Only',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
         'Operating System :: OS Independent',
         'Topic :: Software Development :: Libraries :: Python Modules'
     ]
