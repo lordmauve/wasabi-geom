@@ -4,26 +4,41 @@ cimport cython
 from libc.math cimport sqrt, atan2, cos, sin, floor, pi
 
 
-cdef int _extract(object o, double *x, double *y):
+cdef inline int _extract(object o, double *x, double *y):
     if isinstance(o, Vector):
         x[0] = (<Vector> o).x;
         y[0] = (<Vector> o).y;
         return 1
-    elif len(o) == 2:
+    if len(o) == 2:
         x[0] = <double?> o[0];
         y[0] = <double?> o[1];
         return 1
     return 0
 
 
+cdef Vector newvec(double x, double y):
+    cdef Vector v = Vector.__new__(Vector)
+    v.x = x
+    v.y = y
+    return v
+
+
 @cython.freelist(32)
 cdef class Vector:
     """Two-dimensional float vector implementation."""
-    cdef public double x, y
+    cdef readonly double x, y
 
-    def __init__(self, double x, double y):
-        self.x = x
-        self.y = y
+    def __init__(self, *args):
+        if len(args) == 2:
+            self.x = <double?> args[0]
+            self.y = <double?> args[1]
+            return
+        elif len(args) == 1:
+            if _extract(args[0], &self.x, &self.y):
+                return
+        raise TypeError(
+            "Expected a vector object or tuple, or x and y parameters"
+        )
 
     cdef object stringify(self):
         return f"Vector({self.x!r}, {self.y!r})"
@@ -80,7 +95,7 @@ cdef class Vector:
         """Test if this is the zero vector."""
         return self.length_squared() < 1e-9
 
-    def __add__(self, object other):
+    def __add__(Vector self, object other):
         """Add the vectors componentwise.
 
         :Parameters:
@@ -91,7 +106,7 @@ cdef class Vector:
         cdef double x2, y2
         if not _extract(other, &x2, &y2):
             return NotImplemented
-        return Vector(self.x + x2, self.y + y2)
+        return newvec(self.x + x2, self.y + y2)
 
     __radd__ = __add__
 
@@ -103,7 +118,7 @@ cdef class Vector:
                 The object to subtract.
 
         """
-        return Vector(self.x - other[0], self.y - other[1])
+        return newvec(self.x - other[0], self.y - other[1])
 
     def __rsub__(self, other):
         """Subtract the vectors componentwise.
@@ -113,9 +128,9 @@ cdef class Vector:
                 The object to subtract.
 
         """
-        return Vector(other[0] - self.x, other[1] - self.y)
+        return newvec(other[0] - self.x, other[1] - self.y)
 
-    def __mul__(self, other):
+    def __mul__(Vector self, other):
         """Either multiply the vector by a scalar or compute the dot product
         with another vector.
 
@@ -124,11 +139,11 @@ cdef class Vector:
                 The object by which to multiply.
 
         """
-        try:
-            other = float(other)
-            return Vector(self.x * other, self.y * other)
-        except TypeError:
-            return self.x * other[0] + self.y * other[1]
+        cdef double v
+        if isinstance(other, float):
+            v = <double> other
+            return newvec(self.x * v, self.y * v)
+        return self.dot(other)
 
     def __rmul__(self, other):
         """Either multiply the vector by a scalar or compute the dot product
@@ -225,7 +240,7 @@ cdef class Vector:
 
         """
         cdef double l = self.length()
-        return Vector(self.x / l, self.y / l)
+        return newvec(self.x / l, self.y / l)
 
     def safe_normalized(self):
         """Compute the vector scaled to unit length, or some unit vector
@@ -239,9 +254,9 @@ cdef class Vector:
     def perpendicular(self):
         """Compute the perpendicular."""
         vx, vy = self
-        return Vector(-vy, vx)
+        return newvec(-vy, vx)
 
-    def dot(self, object other):
+    cpdef double dot(Vector self, object other):
         """Compute the dot product with another vector.
 
         :Parameters:
