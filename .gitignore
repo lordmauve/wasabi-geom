@@ -1,0 +1,7 @@
+*.pyc
+*.swp
+/cyvec.html
+/cyvec.c
+/build/
+/dist/
+/venv/
