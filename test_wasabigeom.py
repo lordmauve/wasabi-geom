@@ -1,7 +1,8 @@
 from math import hypot
 from hypothesis import given, strategies as st
 from pytest import approx
-from cyvec import vec2
+
+from wasabigeom import vec2
 
 
 floats = st.floats(
@@ -63,3 +64,29 @@ def test_normalized(x, y):
         return
     r, theta = vec.to_polar()
     assert vec.normalized().to_polar() == approx((1.0, theta))
+
+
+def test_normalize():
+    """We can normalize a vector."""
+    roothalf = 0.5 ** 0.5
+    assert tuple(vec2(-1.0, 1.0).normalized()) == approx((-roothalf, roothalf))
+
+
+def test_add_tuple():
+    """We can add with a tuple on the right hand side."""
+    assert vec2(0, 1) + (1, 0) == vec2(1, 1)
+
+
+def test_radd_tuple():
+    """We can add with a tuple on the left hand side."""
+    assert (1, 0) + vec2(0, 1) == vec2(1, 1)
+
+
+def test_sub_tuple():
+    """We can subtract with a tuple on the right hand side."""
+    assert vec2(1, 0) - (0, 1) == vec2(1, -1)
+
+
+def test_rsub():
+    """We can subtract with a tuple on the left hand side."""
+    assert (1, 0) - vec2(0, 1) == vec2(1, -1)

@@ -1,7 +1,7 @@
 *.pyc
 *.swp
-/cyvec.html
-/cyvec.c
+/wasabigeom.html
+/wasabigeom.c
 /build/
 /dist/
 /venv/

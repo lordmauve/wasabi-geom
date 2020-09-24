@@ -1,7 +1,9 @@
-#cython: language_level=3
+#cython: language_level=3, c_api_binop_methods=True
 
 cimport cython
 from libc.math cimport sqrt, atan2, cos, sin, floor, pi
+from libc.stdlib cimport llabs
+from libc.stdint cimport int64_t, uint64_t
 
 
 cdef inline int _extract(object o, double *x, double *y):
@@ -63,10 +65,10 @@ cdef class vec2:
         return res
 
     def __hash__(self):
-        cdef unsigned long long hash, h2
-        hash = <unsigned long long> self.x
-        h2 = <unsigned long long> self.y
-        hash = hash ^ (h2 << 32) | (h2 >> 32 & 0xffffffff)
+        cdef uint64_t hash, h2, mask = 0xffffffff, shift = 32
+        hash = (<uint64_t *> &self.x)[0]
+        h2 = (<uint64_t *> &self.y)[0]
+        hash = hash ^ (h2 << shift) | (h2 >> shift & mask)
         return hash
 
     def __getitem__(self, int idx):
@@ -95,7 +97,7 @@ cdef class vec2:
         """Test if this is the zero vector."""
         return self.length_squared() < 1e-9
 
-    def __add__(vec2 self, object other):
+    def __add__(object a, object b):
         """Add the vectors componentwise.
 
         :Parameters:
@@ -103,32 +105,17 @@ cdef class vec2:
                 The object to add.
 
         """
-        cdef double x2, y2
-        if not _extract(other, &x2, &y2):
+        cdef double ax, ay, bx, by
+        if not _extract(a, &ax, &ay) or not _extract(b, &bx, &by):
             return NotImplemented
-        return newvec2(self.x + x2, self.y + y2)
+        return newvec2(ax + bx, ay + by)
 
-    __radd__ = __add__
-
-    def __sub__(self, other):
-        """Subtract the vectors componentwise.
-
-        :Parameters:
-            `other` : vec2
-                The object to subtract.
-
-        """
-        return newvec2(self.x - other[0], self.y - other[1])
-
-    def __rsub__(self, other):
-        """Subtract the vectors componentwise.
-
-        :Parameters:
-            `other` : vec2
-                The object to subtract.
-
-        """
-        return newvec2(other[0] - self.x, other[1] - self.y)
+    def __sub__(object a, object b):
+        """Subtract the vectors componentwise."""
+        cdef double ax, ay, bx, by
+        if not _extract(a, &ax, &ay) or not _extract(b, &bx, &by):
+            return NotImplemented
+        return newvec2(ax - bx, ay - by)
 
     def __mul__(vec2 self, other):
         """Either multiply the vector by a scalar or compute the dot product
@@ -144,21 +131,6 @@ cdef class vec2:
             v = <double> other
             return newvec2(self.x * v, self.y * v)
         return self.dot(other)
-
-    def __rmul__(self, other):
-        """Either multiply the vector by a scalar or compute the dot product
-        with another vector.
-
-        :Parameters:
-            `other` : vec2 or float
-                The object by which to multiply.
-
-        """
-        try:
-            other = float(other)
-            return vec2(other * self.y, other * self.y)
-        except TypeError:
-            return other[0] * self.x + other[1] * self.y
 
     def __div__(self, other):
         """Divide the vector by a scalar.
@@ -1238,7 +1210,17 @@ cdef class Matrix:
     """
     cdef double x11, x12, x21, x22
 
-    def __cinit__(self, x11, x12, x21, x22):
+    @staticmethod
+    cdef new(double x11, double x12, double x21, double x22):
+        cdef Matrix m
+        m = Matrix.__new__(Matrix)
+        m.x11 = x11
+        m.x12 = x12
+        m.x21 = x21
+        m.x22 = x22
+        return m
+
+    def __init__(self, double x11, double x12, double x21, double x22):
         self.x11 = x11
         self.x12 = x12
         self.x21 = x21
@@ -1252,9 +1234,53 @@ cdef class Matrix:
         )
 
     @staticmethod
+    def identity():
+        return Matrix.new(1.0, 0.0, 0.0, 1.0)
+
+    @staticmethod
     def rotation(double angle):
         """A rotation matrix for angle a."""
         cdef double s, c
         s = sin(angle)
         c = cos(angle)
-        return Matrix.__new__(Matrix, c, -s, s, c)
+        return Matrix.new(c, -s, s, c)
+
+
+def bresenham(int64_t x0, int64_t y0, int64_t x1, int64_t y1):
+    """Yield integer coordinates on the line from (x0, y0) to (x1, y1).
+
+    Input coordinates should be integers.
+    The result will contain both the start and the end point.
+
+    """
+    # Copyright © 2016 Petr Viktorin
+    # Licensed under MIT
+    # Copied from https://github.com/encukou/bresenham and cythonised
+
+    cdef int64_t dx, dy, xx, xy, yx, yy, D, y, x
+    cdef bint xsign, ysign
+
+    dx = x1 - x0
+    dy = y1 - y0
+
+    xsign = 1 if dx > 0 else -1
+    ysign = 1 if dy > 0 else -1
+
+    dx = llabs(dx)
+    dy = llabs(dy)
+
+    if dx > dy:
+        xx, xy, yx, yy = xsign, 0, 0, ysign
+    else:
+        dx, dy = dy, dx
+        xx, xy, yx, yy = 0, ysign, xsign, 0
+
+    D = 2*dy - dx
+    y = 0
+
+    for x in range(dx + 1):
+        yield x0 + x*xx + y*yx, y0 + x*xy + y*yy
+        if D >= 0:
+            y += 1
+            D -= 2*dx
+        D += 2*dy
