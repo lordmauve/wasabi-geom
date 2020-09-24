@@ -5,9 +5,9 @@ from libc.math cimport sqrt, atan2, cos, sin, floor, pi
 
 
 cdef inline int _extract(object o, double *x, double *y):
-    if isinstance(o, Vector):
-        x[0] = (<Vector> o).x;
-        y[0] = (<Vector> o).y;
+    if isinstance(o, vec2):
+        x[0] = (<vec2> o).x;
+        y[0] = (<vec2> o).y;
         return 1
     if len(o) == 2:
         x[0] = <double?> o[0];
@@ -16,15 +16,15 @@ cdef inline int _extract(object o, double *x, double *y):
     return 0
 
 
-cdef Vector newvec(double x, double y):
-    cdef Vector v = Vector.__new__(Vector)
+cdef vec2 newvec2(double x, double y):
+    cdef vec2 v = vec2.__new__(vec2)
     v.x = x
     v.y = y
     return v
 
 
 @cython.freelist(32)
-cdef class Vector:
+cdef class vec2:
     """Two-dimensional float vector implementation."""
     cdef readonly double x, y
 
@@ -41,7 +41,7 @@ cdef class Vector:
         )
 
     cdef object stringify(self):
-        return f"Vector({self.x!r}, {self.y!r})"
+        return f"vec2({self.x!r}, {self.y!r})"
 
     def __str__(self):
         """Construct a concise string representation."""
@@ -95,18 +95,18 @@ cdef class Vector:
         """Test if this is the zero vector."""
         return self.length_squared() < 1e-9
 
-    def __add__(Vector self, object other):
+    def __add__(vec2 self, object other):
         """Add the vectors componentwise.
 
         :Parameters:
-            `other` : Vector
+            `other` : vec2
                 The object to add.
 
         """
         cdef double x2, y2
         if not _extract(other, &x2, &y2):
             return NotImplemented
-        return newvec(self.x + x2, self.y + y2)
+        return newvec2(self.x + x2, self.y + y2)
 
     __radd__ = __add__
 
@@ -114,35 +114,35 @@ cdef class Vector:
         """Subtract the vectors componentwise.
 
         :Parameters:
-            `other` : Vector
+            `other` : vec2
                 The object to subtract.
 
         """
-        return newvec(self.x - other[0], self.y - other[1])
+        return newvec2(self.x - other[0], self.y - other[1])
 
     def __rsub__(self, other):
         """Subtract the vectors componentwise.
 
         :Parameters:
-            `other` : Vector
+            `other` : vec2
                 The object to subtract.
 
         """
-        return newvec(other[0] - self.x, other[1] - self.y)
+        return newvec2(other[0] - self.x, other[1] - self.y)
 
-    def __mul__(Vector self, other):
+    def __mul__(vec2 self, other):
         """Either multiply the vector by a scalar or compute the dot product
         with another vector.
 
         :Parameters:
-            `other` : Vector or float
+            `other` : vec2 or float
                 The object by which to multiply.
 
         """
         cdef double v
         if isinstance(other, float):
             v = <double> other
-            return newvec(self.x * v, self.y * v)
+            return newvec2(self.x * v, self.y * v)
         return self.dot(other)
 
     def __rmul__(self, other):
@@ -150,13 +150,13 @@ cdef class Vector:
         with another vector.
 
         :Parameters:
-            `other` : Vector or float
+            `other` : vec2 or float
                 The object by which to multiply.
 
         """
         try:
             other = float(other)
-            return Vector(other * self.y, other * self.y)
+            return vec2(other * self.y, other * self.y)
         except TypeError:
             return other[0] * self.x + other[1] * self.y
 
@@ -168,7 +168,7 @@ cdef class Vector:
                 The object by which to divide.
 
         """
-        return Vector(self.x / other, self.y / other)
+        return vec2(self.x / other, self.y / other)
 
     def __truediv__(self, other):
         """Divide the vector by a scalar.
@@ -178,7 +178,7 @@ cdef class Vector:
                 The object by which to divide.
 
         """
-        return Vector(self.x / other, self.y / other)
+        return vec2(self.x / other, self.y / other)
 
     def __floordiv__(self, other):
         """Divide the vector by a scalar, rounding down.
@@ -188,13 +188,13 @@ cdef class Vector:
                 The object by which to divide.
 
         """
-        return Vector(self.x // other, self.y // other)
+        return vec2(self.x // other, self.y // other)
 
     def __neg__(self):
         """Compute the unary negation of the vector.
 
         """
-        return Vector(-self.x, -self.y)
+        return vec2(-self.x, -self.y)
 
     def rotated(self, angle):
         """Compute the vector rotated by an angle.
@@ -207,7 +207,7 @@ cdef class Vector:
         vx = self.x
         vy = self.y
         ca, sa = cos(angle), sin(angle)
-        return Vector((vx * ca - vy * sa, vx * sa + vy * ca))
+        return vec2((vx * ca - vy * sa, vx * sa + vy * ca))
 
     def scaled_to(self, length):
         """Compute the vector scaled to a given length.
@@ -220,7 +220,7 @@ cdef class Vector:
         vx = self.x
         vy = self.y
         s = length / self.length()
-        return Vector(vx * s, vy * s)
+        return vec2(vx * s, vy * s)
 
     def safe_scaled_to(self, length):
         """Compute the vector scaled to a given length, or just return the
@@ -240,7 +240,7 @@ cdef class Vector:
 
         """
         cdef double l = self.length()
-        return newvec(self.x / l, self.y / l)
+        return newvec2(self.x / l, self.y / l)
 
     def safe_normalized(self):
         """Compute the vector scaled to unit length, or some unit vector
@@ -248,32 +248,32 @@ cdef class Vector:
 
         """
         if self.is_zero():
-            return Vector(0, 1)
+            return vec2(0, 1)
         return self.normalized()
 
     def perpendicular(self):
         """Compute the perpendicular."""
         vx, vy = self
-        return newvec(-vy, vx)
+        return newvec2(-vy, vx)
 
-    cpdef double dot(Vector self, object other):
+    cpdef double dot(vec2 self, object other):
         """Compute the dot product with another vector.
 
         :Parameters:
-            `other` : Vector
+            `other` : vec2
                 The vector with which to compute the dot product.
 
         """
         cdef double x2, y2
         if not _extract(other, &x2, &y2):
-            raise TypeError("Expected Vector or 2-tuple")
+            raise TypeError("Expected vec2 or 2-tuple")
         return self.x * x2 + self.y * y2
 
     def cross(self, other):
         """Compute the cross product with another vector.
 
         :Parameters:
-            `other` : Vector
+            `other` : vec2
                 The vector with which to compute the cross product.
 
         """
@@ -283,7 +283,7 @@ cdef class Vector:
         """Compute the projection of another vector onto this one.
 
         :Parameters:
-            `other` : Vector
+            `other` : vec2
                 The vector of which to compute the projection.
 
         """
@@ -293,12 +293,12 @@ cdef class Vector:
         """Compute the angle made to another vector in the range [0, pi].
 
         :Parameters:
-            `other` : Vector
+            `other` : vec2
                 The vector with which to compute the angle.
 
         """
-        if not isinstance(other, Vector):
-            other = Vector(other)
+        if not isinstance(other, vec2):
+            other = vec2(other)
         a = abs(other.angle() - self.angle())
         return min(a, 2 * pi - a)
 
@@ -306,12 +306,12 @@ cdef class Vector:
         """Compute the signed angle made to another vector in the range.
 
         :Parameters:
-            `other` : Vector
+            `other` : vec2
                 The vector with which to compute the angle.
 
         """
-        if not isinstance(other, Vector):
-            other = Vector(other)
+        if not isinstance(other, vec2):
+            other = vec2(other)
         a = other.angle() - self.angle()
         return min(a + pi, a, a - pi, key=abs)
 
@@ -322,7 +322,7 @@ cdef class Vector:
         """Compute the distance to another point vector.
 
         :Parameters:
-            `other` : Vector
+            `other` : vec2
                 The point vector to which to compute the distance.
 
         """
@@ -341,17 +341,17 @@ def v(*args):
         raise TypeError(
             "Expected either a two-argument tuple or two arguments"
         )
-    return Vector(x, y)
+    return vec2(x, y)
 
 
 #: The zero vector.
-zero = Vector(0, 0)
+zero = vec2(0, 0)
 
 #: The unit vector on the x-axis.
-unit_x = Vector(1, 0)
+unit_x = vec2(1, 0)
 
 #: The unit vector on the y-axis.
-unit_y = Vector(0, 1)
+unit_y = vec2(0, 1)
 
 
 class Line(object):
@@ -369,14 +369,14 @@ class Line(object):
         """Create a Line object.
 
         :Parameters:
-            `direction` : Vector
+            `direction` : vec2
                 A (non-zero) vector perpendicular to the line.
             `distance` : float
                 The distance from the origin to the line.
 
         """
-        if not isinstance(direction, Vector):
-            direction = Vector(direction)
+        if not isinstance(direction, vec2):
+            direction = vec2(direction)
         self.direction = direction.normalized()
         self.along = self.direction.perpendicular()
         self.distance = distance
@@ -406,12 +406,12 @@ class Line(object):
         """Create a Line object from two (distinct) points.
 
         :Parameters:
-            `first`, `second` : Vector
+            `first`, `second` : vec2
                 The vectors used to construct the line.
 
         """
-        if not isinstance(first, Vector):
-            first = Vector(first)
+        if not isinstance(first, vec2):
+            first = vec2(first)
         along = (second - first).normalized()
         direction = -along.perpendicular()
         distance = first.dot(direction)
@@ -427,7 +427,7 @@ class Line(object):
         """Compute the projection of a point onto the line.
 
         :Parameters:
-            `point` : Vector
+            `point` : vec2
                 The point to project onto the line.
 
         """
@@ -438,12 +438,12 @@ class Line(object):
         """Reflect a point in the line.
 
         :Parameters:
-            `point` : Vector
+            `point` : vec2
                 The point to reflect in the line.
 
         """
-        if not isinstance(point, Vector):
-            point = Vector(point)
+        if not isinstance(point, vec2):
+            point = vec2(point)
         offset_distance = point.dot(self.direction) - self.distance
         return point - 2 * self.direction * offset_distance
 
@@ -453,12 +453,12 @@ class Line(object):
         """Return the (signed) distance to a point.
 
         :Parameters:
-            `point` : Vector
+            `point` : vec2
                 The point to measure the distance to.
 
         """
-        if not isinstance(point, Vector):
-            point = Vector(point)
+        if not isinstance(point, vec2):
+            point = vec2(point)
         return point.dot(self.direction) - self.distance
 
     altitude = distance_to
@@ -467,7 +467,7 @@ class Line(object):
         """Determine if the given point is left of the line.
 
         :Parameters:
-            `point` : Vector
+            `point` : vec2
                 The point to locate.
 
         """
@@ -479,7 +479,7 @@ class Line(object):
         """Determine if the given point is right of the line.
 
         :Parameters:
-            `point` : Vector
+            `point` : vec2
                 The point to locate.
 
         """
@@ -489,26 +489,26 @@ class Line(object):
         """Return a line parallel to this one through the given point.
 
         :Parameters:
-            `point` : Vector
+            `point` : vec2
                 The point through which to trace a line.
 
         """
-        if not isinstance(point, Vector):
-            point = Vector(point)
+        if not isinstance(point, vec2):
+            point = vec2(point)
         distance = point.dot(self.direction)
         return Line(self.direction, distance)
 
     def perpendicular(self, point):
         """Return a line perpendicular to this one through the given point. The
-        orientation of the line is consistent with ``Vector.perpendicular``.
+        orientation of the line is consistent with ``vec2.perpendicular``.
 
         :Parameters:
-            `point` : Vector
+            `point` : vec2
                 The point through which to trace a line.
 
         """
-        if not isinstance(point, Vector):
-            point = Vector(point)
+        if not isinstance(point, vec2):
+            point = vec2(point)
         direction = self.direction.perpendicular()
         distance = point.dot(direction)
         return Line(direction, distance)
@@ -563,14 +563,14 @@ class LineSegment(object):
         """Create a LineSegment object from two (distinct) points.
 
         :Parameters:
-            `first`, `second` : Vector
+            `first`, `second` : vec2
                 The vectors used to construct the line.
 
         """
-        if not isinstance(first, Vector):
-            first = Vector(first)
-        if not isinstance(second, Vector):
-            second = Vector(second)
+        if not isinstance(first, vec2):
+            first = vec2(first)
+        if not isinstance(second, vec2):
+            second = vec2(second)
         line = Line.from_points(first, second)
         d1, d2 = first.dot(line.along), second.dot(line.along)
         return cls(line, min(d1, d2), max(d1, d2))
@@ -620,12 +620,12 @@ class LineSegment(object):
         """Compute the projection of a point onto the line segment.
 
         :Parameters:
-            `point` : Vector
+            `point` : vec2
                 The point to minimise the distance to.
 
         """
-        if not isinstance(point, Vector):
-            point = Vector(point)
+        if not isinstance(point, vec2):
+            point = vec2(point)
         distance = point.dot(self.line.along)
         if distance >= self.max_dist:
             return self.end
@@ -637,12 +637,12 @@ class LineSegment(object):
         """Return the shortest distance to a given point.
 
         :Parameters:
-            `point` : Vector
+            `point` : vec2
                 The point to measure the distance to.
 
         """
-        if not isinstance(point, Vector):
-            point = Vector(point)
+        if not isinstance(point, vec2):
+            point = vec2(point)
         distance = point.dot(self.line.along)
         if distance >= self.max_dist:
             return self.end.distance_to(point)
@@ -795,8 +795,8 @@ class BasePolygon(object):
             if not intersection1:
                 return False
 
-            proj_vector1 = Vector((axis.x * intersection1, axis.y * intersection1))
-            proj_vector2 = Vector((axis.x * intersection2, axis.y * intersection2))
+            proj_vector1 = vec2((axis.x * intersection1, axis.y * intersection1))
+            proj_vector2 = vec2((axis.x * intersection2, axis.y * intersection2))
             projections.append(proj_vector1)
             projections.append(proj_vector2)
 
@@ -819,7 +819,7 @@ class ConvexPolygon(BasePolygon):
     def __init__(self, points):
         self.points = []
         for p in points:
-            self.points.append(Vector(p))
+            self.points.append(vec2(p))
 
     def edges(self):
         edges = []
@@ -865,20 +865,20 @@ class Triangle(object):
         counter-clockwise, ditto clockwise.
 
         :Parameters:
-            `base` : Vector
+            `base` : vec2
                 A point vector of a base point of the triangle.
-            `primary` : Vector
+            `primary` : vec2
                 The vector from the base point to one of the others.
-            `secondary` : Vector
+            `secondary` : vec2
                 The vector from the base point to the final point.
 
         """
-        if not isinstance(base, Vector):
-            base = Vector(base)
-        if not isinstance(primary, Vector):
-            primary = Vector(primary)
-        if not isinstance(secondary, Vector):
-            secondary = Vector(secondary)
+        if not isinstance(base, vec2):
+            base = vec2(base)
+        if not isinstance(primary, vec2):
+            primary = vec2(primary)
+        if not isinstance(secondary, vec2):
+            secondary = vec2(secondary)
         self.base = base
         self.primary = primary
         self.secondary = secondary
@@ -902,14 +902,14 @@ class Triangle(object):
         """Create a Triangle object from its three points.
 
         :Parameters:
-            `base` : Vector
+            `base` : vec2
                 The base point of the triangle.
-            `first`, `second` : Vector
+            `first`, `second` : vec2
                 The other two points of the triangle.
 
         """
-        if not isinstance(base, Vector):
-            base = Vector(base)
+        if not isinstance(base, vec2):
+            base = vec2(base)
         primary = first - base
         secondary = second - base
         return cls(base, primary, secondary)
@@ -1003,10 +1003,10 @@ class Rect(BasePolygon, namedtuple('BaseRect', 'l r b t')):
     def points(self):
         """A list of the points in the rectangle."""
         return [
-            Vector((self.l, self.b)),
-            Vector((self.l, self.t)),
-            Vector((self.r, self.t)),
-            Vector((self.r, self.b)),
+            vec2((self.l, self.b)),
+            vec2((self.l, self.t)),
+            vec2((self.r, self.t)),
+            vec2((self.r, self.b)),
         ]
 
     @property
@@ -1065,19 +1065,19 @@ class Rect(BasePolygon, namedtuple('BaseRect', 'l r b t')):
 
     def bottomleft(self):
         """The bottom left point."""
-        return Vector((self.l, self.b))
+        return newvec2(self.l, self.b)
 
     def topleft(self):
         """The top left point."""
-        return Vector((self.l, self.t))
+        return newvec2(self.l, self.t)
 
     def topright(self):
         """The top right point."""
-        return Vector((self.r, self.t))
+        return newvec2(self.r, self.t)
 
     def bottomright(self):
         """The bottom right point."""
-        return Vector((self.r, self.b))
+        return newvec2(self.r, self.b)
 
     def translate(self, off):
         """Return a new Rect translated by the vector `off`."""
@@ -1224,39 +1224,37 @@ class SpatialHash:
                     seen.add(hit)
 
 
-class Matrix(object):
+cdef class Matrix:
     """A 2x2 matrix.
 
     This can be used to optimise a transform (such as a rotation) on multiple
     vectors without recomputing terms.
 
     To transform a vector with this matrix, use premultiplication, ie. for
-    Matrix M and Vector v, ::
+    Matrix M and vec2 v, ::
 
         t = M * v
 
-
-
     """
-    __slots__ = ('x11', 'x12', 'x21', 'x22')
+    cdef double x11, x12, x21, x22
 
-    def __init__(self, x11, x12, x21, x22):
+    def __cinit__(self, x11, x12, x21, x22):
         self.x11 = x11
         self.x12 = x12
         self.x21 = x21
         self.x22 = x22
 
-    def __mul__(self, vec):
+    def __mul__(Matrix self, vec2 vec):
         """Multiple a vector by this matrix."""
-        return Vector((
+        return newvec2(
             self.x11 * vec.x + self.x12 * vec.y,
             self.x21 * vec.x + self.x22 * vec.y
-        ))
+        )
 
     @staticmethod
-    def rotation(angle):
+    def rotation(double angle):
         """A rotation matrix for angle a."""
         cdef double s, c
         s = sin(angle)
         c = cos(angle)
-        return Matrix(c, -s, s, c)
+        return Matrix.__new__(Matrix, c, -s, s, c)

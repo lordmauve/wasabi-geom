@@ -18,7 +18,7 @@ def timeit(name, stmt):
     print(f"{name}: {dur * 1e6:0.2f}us per op ({loops} samples)")
 
 
-from cyvec import Vector as v
+from cyvec import vec2 as v
 
 print("*** cyvec ***")
 timeit("Addition", "a + b")
