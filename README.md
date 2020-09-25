@@ -1,10 +1,14 @@
 # wasabigeom - fast geometry types for Python games
 
 ![Build Wheels](https://github.com/lordmauve/cyvec/workflows/Build%20Wheels/badge.svg?branch=master)
-![PyPI](https://img.shields.io/pypi/v/wasabi-geom) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/wasabi-geom) ![PyPI - Wheel](https://img.shields.io/pypi/wheel/wasabi-geom) [![Discord](https://img.shields.io/discord/705530610847973407)](https://discord.gg/jBWaWHU)
+![PyPI](https://img.shields.io/pypi/v/wasabi-geom) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/wasabi-geom) ![PyPI - Wheel](https://img.shields.io/pypi/wheel/wasabi-geom) [![Documentation Status](https://readthedocs.org/projects/pip/badge/?version=stable)](https://pip.pypa.io/en/stable/?badge=stable) [![Discord](https://img.shields.io/discord/705530610847973407)](https://discord.gg/jBWaWHU)
 
 `wasabigeom` is a 2D geometry library intended for game development. It started
 life as a pure Python library but is now implemented in optimised Cython code.
+
+# Documentation
+
+[View on ReadTheDocs](https://wasabigeom.readthedocs.io/en/stable/)
 
 
 # Installation
