@@ -1,4 +1,4 @@
 cython
 pytest
 hypothesis
-Sphinx
+Sphinx>=2
