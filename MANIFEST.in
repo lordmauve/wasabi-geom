@@ -1,0 +1,4 @@
+include *.pyx
+include *.py
+exclude *.c
+include LICENSE README.md requirements-dev.txt pyproject.toml

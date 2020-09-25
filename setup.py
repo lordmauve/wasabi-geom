@@ -5,4 +5,3 @@ setup(
     ext_modules=cythonize("wasabigeom.pyx"),
     zip_safe=False,
 )
-

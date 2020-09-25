@@ -1,14 +1,24 @@
-# cyvec - a Cythonised vector class
+# wasabigeom - fast geometry types for Python games
 
 ![Build Wheels](https://github.com/lordmauve/cyvec/workflows/Build%20Wheels/badge.svg?branch=master)
 
-I took [wasabi.geom](https://wasabigeom.readthedocs.io/en/latest/), a
-pure-Python vector maths library that I wrote a long time ago, and started
-Cythonising it.
+`wasabigeom` is a 2D geometry library intended for game development. It started
+life as a pure Python library but is now implemented in optimised Cython code.
 
-I've made some changes to the interface; notably, I prefer radians thes days.
 
-This is an experiment to see how effective this approach is compared to a
-[Rust implementation I started previously](https://github.com/lordmauve/wvec),
-on considerations like developer productivity and the speed of the resulting
-library.
+# Installation
+
+To install, just run:
+
+```
+pip install wasabi-geom
+```
+
+
+## What's new in 2.0.0
+
+I took the existing `wasabi.geom` code and Cythonised it.
+
+I've made some big, breaking changes to the interface; notably, I prefer
+radians thes days and eschew namespace packages. To install the old,
+pure-Python version, pin to `wasabi-geom<2`.
