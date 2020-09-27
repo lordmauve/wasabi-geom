@@ -1,6 +1,13 @@
 Changelog
 =========
 
+2.0.1 - released 2020-09-27
+---------------------------
+
+* Several bugfixes, particularly around multiplying/dividing by `int` and
+  `nonvec + vec`
+
+
 2.0.0 - released 2020-09-25
 ---------------------------
 

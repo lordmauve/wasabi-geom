@@ -1,8 +1,11 @@
-from math import hypot
+from math import hypot, pi
 from hypothesis import given, strategies as st
-from pytest import approx
+from pytest import approx, raises
 
 from wasabigeom import vec2
+
+
+tau = 2 * pi
 
 
 floats = st.floats(
@@ -27,7 +30,6 @@ def test_repr(x, y):
     """Construct a vec and display its repr."""
     a = vec2(x, y)
     assert eval(repr(a)) == a
-
 
 
 @given(ax=floats, ay=floats, bx=floats, by=floats)
@@ -90,3 +92,70 @@ def test_sub_tuple():
 def test_rsub():
     """We can subtract with a tuple on the left hand side."""
     assert (1, 0) - vec2(0, 1) == vec2(1, -1)
+
+
+def test_mul_float():
+    """We can multiply a vector by a float."""
+    assert vec2(10.0, 5.0) * 2.0 == vec2(20, 10)
+
+
+def test_mul_int():
+    """We can multiply a vector by an integer."""
+    assert vec2(10.0, 5.0) * 2 == vec2(20, 10)
+
+
+def test_rmul_float():
+    """We can multiply a vector by a float."""
+    assert 2.0 * vec2(10.0, 5.0) == vec2(20, 10)
+
+
+def test_rmul_int():
+    """We can multiply a vector by an integer."""
+    assert 2 * vec2(10.0, 5.0) == vec2(20, 10)
+
+
+def test_sub_int():
+    """It is a TypeError to subtract a vector and an int."""
+    with raises(TypeError):
+        vec2(0, 0) - 1
+
+
+def test_rsub_int():
+    """It is a TypeError to subtract a vector and an int."""
+    with raises(TypeError):
+        1 - vec2(0, 0)
+
+
+def test_add_invalid_tuple_length():
+    """It is an error to add a vector and a tuple of length != 2."""
+    with raises(TypeError):
+        vec2(0, 0) + ()
+
+
+def test_add_none_tuple():
+    """It is an error to vectors that don't contain numbers."""
+    with raises(TypeError):
+        vec2(0, 0) + (None, None)
+
+
+def test_div():
+    """We can divide a vec2."""
+    assert vec2(10, 20) / 2 == vec2(5, 10)
+
+
+def test_rdiv():
+    """We can divide by a vec2."""
+    assert 8 / vec2(2, 4) == vec2(4, 2)
+
+
+def test_negate():
+    """We can negate a vector."""
+    assert -vec2(1, -2) == vec2(-1, 2)
+
+
+@given(angle=st.floats(min_value=-10 * tau, max_value=10 * tau))
+def test_rotate(angle):
+    """We can rotate a vector."""
+    r, theta = vec2(1, 1).rotated(angle).to_polar()
+    assert theta % tau == approx((angle + tau / 8) % tau)
+    assert r == approx(2 ** 0.5)

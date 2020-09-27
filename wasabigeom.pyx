@@ -6,12 +6,14 @@ from libc.stdlib cimport llabs
 from libc.stdint cimport int64_t, uint64_t
 
 
-cdef inline int _extract(object o, double *x, double *y):
+cdef inline int _extract(object o, double *x, double *y) except -1:
     if isinstance(o, vec2):
         x[0] = (<vec2> o).x;
         y[0] = (<vec2> o).y;
         return 1
-    if len(o) == 2:
+    if isinstance(o, tuple):
+        if len(o) != 2:
+            raise TypeError("Tuple was not of length 2")
         x[0] = <double?> o[0];
         y[0] = <double?> o[1];
         return 1
@@ -117,58 +119,69 @@ cdef class vec2:
             return NotImplemented
         return newvec2(ax - bx, ay - by)
 
-    def __mul__(vec2 self, other):
-        """Either multiply the vector by a scalar or compute the dot product
-        with another vector.
+    def __mul__(object a, object b):
+        """Multiply the vector by a scalar.
+
+        Use .dot() to compute the dot product.
 
         :Parameters:
-            `other` : vec2 or float
+            `other` : float
                 The object by which to multiply.
 
         """
-        cdef double v
-        if isinstance(other, float):
-            v = <double> other
-            return newvec2(self.x * v, self.y * v)
-        return self.dot(other)
+        cdef double f
+        cdef vec2 vec
+        cdef object other
+        if isinstance(a, vec2):
+            vec = <vec2> a
+            other = b
+        else:
+            vec = <vec2> b
+            other = a
+        f = <double?> other
+        return newvec2(vec.x * f, vec.y * f)
 
-    def __div__(self, other):
-        """Divide the vector by a scalar.
+    def __truediv__(a, b):
+        """Divide the vector by a scalar."""
+        cdef double f, x, y
+        if isinstance(a, vec2):
+            if not isinstance(b, (int, float)):
+                return NotImplemented
+            x = (<vec2> a).x
+            y = (<vec2> a).y
+            f = <double ?> b
+            return newvec2(x / f, y / f)
+        else:
+            if not isinstance(a, (int, float)):
+                return NotImplemented
+            x = (<vec2> b).x
+            y = (<vec2> b).y
+            f = <double ?> a
+            return newvec2(f / x, f / y)
 
-        :Parameters:
-            `other` : float
-                The object by which to divide.
+    def __floordiv__(a, b):
+        """Divide the vector by a scalar, rounding down."""
+        cdef double f, x, y
+        if isinstance(a, vec2):
+            if not isinstance(b, (int, float)):
+                return NotImplemented
+            x = (<vec2> a).x
+            y = (<vec2> a).y
+            f = <double ?> b
+            return newvec2(x // f, y // f)
+        else:
+            if not isinstance(a, (int, float)):
+                return NotImplemented
+            x = (<vec2> b).x
+            y = (<vec2> b).y
+            f = <double ?> a
+            return newvec2(f // x, f // y)
 
-        """
-        return vec2(self.x / other, self.y / other)
+    def __neg__(vec2 self):
+        """Compute the unary negation of the vector."""
+        return newvec2(-self.x, -self.y)
 
-    def __truediv__(self, other):
-        """Divide the vector by a scalar.
-
-        :Parameters:
-            `other` : float
-                The object by which to divide.
-
-        """
-        return vec2(self.x / other, self.y / other)
-
-    def __floordiv__(self, other):
-        """Divide the vector by a scalar, rounding down.
-
-        :Parameters:
-            `other` : float
-                The object by which to divide.
-
-        """
-        return vec2(self.x // other, self.y // other)
-
-    def __neg__(self):
-        """Compute the unary negation of the vector.
-
-        """
-        return vec2(-self.x, -self.y)
-
-    def rotated(self, angle):
+    def rotated(vec2 self, double angle):
         """Compute the vector rotated by an angle.
 
         :Parameters:
@@ -176,12 +189,14 @@ cdef class vec2:
                 The angle (in radians) by which to rotate.
 
         """
+        cdef double vx, vy, ca, sa
         vx = self.x
         vy = self.y
-        ca, sa = cos(angle), sin(angle)
-        return vec2((vx * ca - vy * sa, vx * sa + vy * ca))
+        ca = cos(angle)
+        sa = sin(angle)
+        return newvec2(vx * ca - vy * sa, vx * sa + vy * ca)
 
-    def scaled_to(self, length):
+    def scaled_to(vec2 self, double length):
         """Compute the vector scaled to a given length.
 
         :Parameters:
@@ -189,10 +204,11 @@ cdef class vec2:
                 The length to which to scale.
 
         """
+        cdef double vx, vy, s
         vx = self.x
         vy = self.y
         s = length / self.length()
-        return vec2(vx * s, vy * s)
+        return newvec2(vx * s, vy * s)
 
     def safe_scaled_to(self, length):
         """Compute the vector scaled to a given length, or just return the
@@ -223,10 +239,9 @@ cdef class vec2:
             return vec2(0, 1)
         return self.normalized()
 
-    def perpendicular(self):
+    def perpendicular(vec2 self):
         """Compute the perpendicular."""
-        vx, vy = self
-        return newvec2(-vy, vx)
+        return newvec2(-self.y, self.x)
 
     cpdef double dot(vec2 self, object other):
         """Compute the dot product with another vector.
@@ -241,7 +256,7 @@ cdef class vec2:
             raise TypeError("Expected vec2 or 2-tuple")
         return self.x * x2 + self.y * y2
 
-    def cross(self, other):
+    def cross(vec2 self, other):
         """Compute the cross product with another vector.
 
         :Parameters:
@@ -249,7 +264,10 @@ cdef class vec2:
                 The vector with which to compute the cross product.
 
         """
-        return self[0] * other[1] - self[1] * other[0]
+        cdef double x2, y2
+        if not _extract(other, &x2, &y2):
+            raise TypeError("Expected vec2 or 2-tuple")
+        return self.x * y2 - self.y * x2
 
     def project(self, other):
         """Compute the projection of another vector onto this one.
@@ -287,10 +305,10 @@ cdef class vec2:
         a = other.angle() - self.angle()
         return min(a + pi, a, a - pi, key=abs)
 
-    def to_polar(self):
+    def to_polar(vec2 self):
         return self.length(), self.angle()
 
-    def distance_to(self, other):
+    def distance_to(vec2 self, other):
         """Compute the distance to another point vector.
 
         :Parameters:
@@ -298,7 +316,13 @@ cdef class vec2:
                 The point vector to which to compute the distance.
 
         """
-        return (other - self).length()
+        cdef double x2, y2
+        if not _extract(other, &x2, &y2):
+            raise TypeError("Expected vec2 or 2-tuple")
+        x2 -= self.x
+        y2 -= self.y
+        return sqrt(x2 * x2 + y2 * y2)
+
 
 def v(*args):
     """Construct a vector from an iterable or from multiple arguments. Valid
