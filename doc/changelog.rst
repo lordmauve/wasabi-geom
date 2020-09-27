@@ -5,6 +5,7 @@ Changelog
 ------------------
 
 * Add vec2.from_polar() static method.
+* Can construct from any 2-sequence of floats
 
 
 2.0.1 - released 2020-09-27

@@ -4,20 +4,24 @@ cimport cython
 from libc.math cimport sqrt, atan2, cos, sin, floor, pi
 from libc.stdlib cimport llabs
 from libc.stdint cimport int64_t, uint64_t
+from cpython.sequence cimport PySequence_Check
 
 
 cdef inline int _extract(object o, double *x, double *y) except -1:
+    cdef int64_t l
     if isinstance(o, vec2):
         x[0] = (<vec2> o).x;
         y[0] = (<vec2> o).y;
         return 1
-    if isinstance(o, tuple):
-        if len(o) != 2:
-            raise TypeError("Tuple was not of length 2")
-        x[0] = <double?> o[0];
-        y[0] = <double?> o[1];
-        return 1
-    return 0
+
+    if not PySequence_Check(o):
+        return 0
+    if len(o) != 2:
+        raise TypeError("Tuple was not of length 2")
+
+    x[0] = <double?> o[0];
+    y[0] = <double?> o[1];
+    return 1
 
 
 cdef vec2 newvec2(double x, double y):

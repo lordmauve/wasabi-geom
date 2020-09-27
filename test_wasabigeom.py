@@ -114,6 +114,11 @@ def test_rmul_int():
     assert 2 * vec2(10.0, 5.0) == vec2(20, 10)
 
 
+def test_add_notimplemented():
+    """Adding to an unsupported type returns NotImplemented."""
+    assert vec2(0, 0).__add__(None) == NotImplemented
+
+
 def test_sub_int():
     """It is a TypeError to subtract a vector and an int."""
     with raises(TypeError):
@@ -164,3 +169,10 @@ def test_rotate(angle):
 def test_from_polar():
     """We can construct a vector from polar coordinates."""
     assert vec2.from_polar(2, pi) == approx((-2, 0))
+
+
+def test_construct_from_array():
+    """We can construct a vector by passing any sequence."""
+    from array import array
+    a = array('d', [6.0, 5.0])
+    assert vec2(a) == vec2(6, 5)
