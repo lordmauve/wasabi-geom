@@ -1,6 +1,12 @@
 Changelog
 =========
 
+2.1.0 - unreleased
+------------------
+
+* Add vec2.from_polar() static method.
+
+
 2.0.1 - released 2020-09-27
 ---------------------------
 

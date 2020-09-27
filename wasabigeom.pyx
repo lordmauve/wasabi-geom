@@ -223,7 +223,7 @@ cdef class vec2:
             return self
         return self.scaled_to(length)
 
-    def normalized(self):
+    cpdef normalized(self):
         """Compute the vector scaled to unit length.
 
         """
@@ -307,6 +307,11 @@ cdef class vec2:
 
     def to_polar(vec2 self):
         return self.length(), self.angle()
+
+    @staticmethod
+    def from_polar(double length, double angle):
+        """Construct a vec2 from polar coordinates."""
+        return newvec2(length * cos(angle), length * sin(angle))
 
     def distance_to(vec2 self, other):
         """Compute the distance to another point vector.

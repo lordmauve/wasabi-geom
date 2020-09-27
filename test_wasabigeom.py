@@ -159,3 +159,8 @@ def test_rotate(angle):
     r, theta = vec2(1, 1).rotated(angle).to_polar()
     assert theta % tau == approx((angle + tau / 8) % tau)
     assert r == approx(2 ** 0.5)
+
+
+def test_from_polar():
+    """We can construct a vector from polar coordinates."""
+    assert vec2.from_polar(2, pi) == approx((-2, 0))
