@@ -1229,6 +1229,106 @@ class SpatialHash:
                     seen.add(hit)
 
 
+
+cdef class Transform:
+    """A 3x3 matrix representing an affine transform in 2D.
+
+    The values of the matrix are
+
+        (a b c)
+        (d e f)
+        (0 0 1)
+
+    These matrices always a bottom row (0, 0, 1), and knowing this allows us to
+    skip some multiplications and drop some terms.
+    """
+    cdef double a, b, c, d, e, f
+
+    @staticmethod
+    def build(object xlate = (0, 0), double theta = 0.0, object scale = (1, 1)):
+        cdef double tx, ty
+        cdef double sx, sy
+        cdef double cos_theta, sin_theta
+        cdef Transform m
+
+        if not _extract(xlate, &tx, &ty) or not _extract(scale, &sx, &sy):
+            raise TypeError("xlate and scale must be 2d vectors")
+
+        cos_theta = cos(theta)
+        sin_theta = sin(theta)
+
+        m = Transform.__new__(Transform)
+        m.a = sx * cos_theta
+        m.b = sx * sin_theta
+        m.c = tx
+
+        m.d = sy * -sin_theta
+        m.e = sy * cos_theta
+        m.f = tx
+        return m
+
+    def __init__(self, double a, double b, double c, double d, double e, double f):
+        self.a = a
+        self.b = b
+        self.c = c
+        self.d = d
+        self.e = e
+        self.f = f
+
+    def __mul__(object obja, object objb):
+        """Multiply the transform by another transform.
+        """
+        cdef Transform A, B, m
+        A = <Transform?> obja
+        B = <Transform?> objb
+
+        m = Transform.__new__(Transform)
+        m.a = A.a * B.a + A.b * B.d
+        m.b = A.a * B.b + A.b * B.e
+        m.c = A.a * B.c + A.b * B.f + A.c
+
+        m.d = A.d * B.a + A.e * B.d
+        m.e = A.d * B.b + A.e * B.e
+        m.f = A.d * B.c + A.e * B.f + A.f
+
+        return m
+
+    def inverse(Transform self):
+        cdef Transform m
+        cdef double det
+
+        det = self.a * self.e - self.b * self.d
+        if det == 0.0:
+            raise ZeroDivisionError("Non-invertable matrix")
+
+        m = Transform.__new__(Transform)
+        m.a = self.e / det
+        m.b = -self.b / det
+        m.c = (self.b * self.f - self.c * self.e) / det
+
+        m.d = -self.d / det
+        m.e = self.a / det
+        m.f = (-self.a * self.f + self.c * self.d) / det
+
+        return m
+
+    def factorise(Transform self):
+        cdef double scale_x, scale_y, angle
+        scale_x = sqrt(self.a * self.a + self.b * self.b)
+        scale_y = sqrt(self.d * self.d + self.e * self.e)
+
+        angle = atan2(self.b, self.a)
+
+        return (newvec2(self.c, self.f), angle, newvec2(scale_x, scale_y))
+
+
+    def __repr__(self):
+        return (
+            f'Transform({self.a}, {self.b}, {self.c},\n'
+            f'          {self.d}, {self.e}, {self.f})'
+        )
+
+
 cdef class Matrix:
     """A 2x2 matrix.
 
