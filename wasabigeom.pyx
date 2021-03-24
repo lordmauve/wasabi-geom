@@ -1259,10 +1259,10 @@ cdef class Transform:
 
         m = Transform.__new__(Transform)
         m.a = sx * cos_theta
-        m.b = sx * sin_theta
+        m.b = sy * -sin_theta
         m.c = tx
 
-        m.d = sy * -sin_theta
+        m.d = sx * sin_theta
         m.e = sy * cos_theta
         m.f = tx
         return m
