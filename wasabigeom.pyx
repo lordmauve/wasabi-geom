@@ -5,6 +5,7 @@ from libc.math cimport sqrt, atan2, cos, sin, floor, pi
 from libc.stdlib cimport llabs
 from libc.stdint cimport int64_t, uint64_t
 from cpython.sequence cimport PySequence_Check
+from cpython cimport Py_buffer
 
 
 cdef inline int _extract(object o, double *x, double *y) except -1:
@@ -1264,7 +1265,7 @@ cdef class Transform:
 
         m.d = sx * sin_theta
         m.e = sy * cos_theta
-        m.f = tx
+        m.f = ty
         return m
 
     def __init__(self, double a, double b, double c, double d, double e, double f):
@@ -1321,12 +1322,58 @@ cdef class Transform:
 
         return (newvec2(self.c, self.f), angle, newvec2(scale_x, scale_y))
 
+    def transform(self,
+                  double[:,:] input_view not None,
+                  double[:,:] output_view=None):
+        cdef double x, y
+
+        arr = None
+
+        if output_view is None:
+            import numpy as np
+            # Creating a default view, e.g.
+            arr = np.empty_like(input_view)
+            output_view = arr
+
+        if input_view.shape[0] != output_view.shape[0]:
+            raise TypeError("Length of input view must match output")
+
+        if not (input_view.shape[1] == output_view.shape[1] == 2):
+            raise TypeError("Can only transform arrays of 2D vectors")
+
+        for i in range(input_view.shape[0]):
+            x, y = input_view[i]
+            output_view[i, 0] = self.a * x + self.b * y + self.c
+            output_view[i, 1] = self.d * x + self.e * y + self.f
+        return arr
+
+    def __getbuffer__(self, Py_buffer *buffer, int flags):
+        cdef Py_ssize_t itemsize = sizeof(self.a)
+
+        buffer.buf = &self.a
+        buffer.format = 'd'                     # double
+        buffer.internal = NULL                  # see References
+        buffer.itemsize = itemsize
+        buffer.len = 6 * itemsize   # product(shape) * itemsize
+        buffer.ndim = 2
+        buffer.obj = self
+        buffer.readonly = 0
+        buffer.shape = XFORM_SHAPE
+        buffer.strides = XFORM_STRIDES
+        buffer.suboffsets = NULL                # for pointer arrays only
+
+    def __releasebuffer__(self, Py_buffer *buffer):
+        pass
 
     def __repr__(self):
         return (
             f'Transform({self.a}, {self.b}, {self.c},\n'
             f'          {self.d}, {self.e}, {self.f})'
         )
+
+
+cdef Py_ssize_t[2] XFORM_SHAPE = [3, 2];
+cdef Py_ssize_t[2] XFORM_STRIDES = [sizeof(double), 3 * sizeof(double)]
 
 
 cdef class Matrix:
