@@ -6,6 +6,7 @@ from libc.stdlib cimport llabs
 from libc.stdint cimport int64_t, uint64_t
 from cpython.sequence cimport PySequence_Check
 from cpython cimport Py_buffer
+from cython cimport floating
 
 
 cdef inline int _extract(object o, double *x, double *y) except -1:
@@ -1246,7 +1247,7 @@ cdef class Transform:
     cdef double a, b, c, d, e, f
 
     @staticmethod
-    def build(object xlate = (0, 0), double theta = 0.0, object scale = (1, 1)):
+    def build(object xlate = (0, 0), double rot = 0.0, object scale = (1, 1)):
         cdef double tx, ty
         cdef double sx, sy
         cdef double cos_theta, sin_theta
@@ -1255,8 +1256,8 @@ cdef class Transform:
         if not _extract(xlate, &tx, &ty) or not _extract(scale, &sx, &sy):
             raise TypeError("xlate and scale must be 2d vectors")
 
-        cos_theta = cos(theta)
-        sin_theta = sin(theta)
+        cos_theta = cos(rot)
+        sin_theta = sin(rot)
 
         m = Transform.__new__(Transform)
         m.a = sx * cos_theta
@@ -1280,9 +1281,13 @@ cdef class Transform:
         """Multiply the transform by another transform.
         """
         cdef Transform A, B, m
-        A = <Transform?> obja
-        B = <Transform?> objb
+        if isinstance(obja, Transform) and isinstance(objb, Transform):
+            return Transform.matmul(obja, objb)
 
+        return NotImplemented
+
+    @staticmethod
+    cdef matmul(Transform A, Transform B):
         m = Transform.__new__(Transform)
         m.a = A.a * B.a + A.b * B.d
         m.b = A.a * B.b + A.b * B.e
@@ -1322,18 +1327,20 @@ cdef class Transform:
 
         return (newvec2(self.c, self.f), angle, newvec2(scale_x, scale_y))
 
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
     def transform(self,
-                  double[:,:] input_view not None,
-                  double[:,:] output_view=None):
-        cdef double x, y
+                  floating[:,:] input_view not None,
+                  floating[:,:] output_view=None):
+        cdef floating x, y
 
-        arr = None
+        ret = None
 
         if output_view is None:
             import numpy as np
             # Creating a default view, e.g.
-            arr = np.empty_like(input_view)
-            output_view = arr
+            ret = np.empty_like(input_view)
+            output_view = ret
 
         if input_view.shape[0] != output_view.shape[0]:
             raise TypeError("Length of input view must match output")
@@ -1341,11 +1348,13 @@ cdef class Transform:
         if not (input_view.shape[1] == output_view.shape[1] == 2):
             raise TypeError("Can only transform arrays of 2D vectors")
 
-        for i in range(input_view.shape[0]):
-            x, y = input_view[i]
-            output_view[i, 0] = self.a * x + self.b * y + self.c
-            output_view[i, 1] = self.d * x + self.e * y + self.f
-        return arr
+        with nogil:
+            for i in range(input_view.shape[0]):
+                x = input_view[i, 0]
+                y = input_view[i, 1]
+                output_view[i, 0] = self.a * x + self.b * y + self.c
+                output_view[i, 1] = self.d * x + self.e * y + self.f
+        return ret
 
     def __getbuffer__(self, Py_buffer *buffer, int flags):
         cdef Py_ssize_t itemsize = sizeof(self.a)

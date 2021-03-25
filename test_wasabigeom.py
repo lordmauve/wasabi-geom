@@ -1,8 +1,11 @@
 from math import hypot, pi
+
 from hypothesis import given, strategies as st
 from pytest import approx, raises
+import pytest
+import numpy as np
 
-from wasabigeom import vec2
+from wasabigeom import vec2, Transform
 
 
 tau = 2 * pi
@@ -176,3 +179,46 @@ def test_construct_from_array():
     from array import array
     a = array('d', [6.0, 5.0])
     assert vec2(a) == vec2(6, 5)
+
+
+for_np_float_types = pytest.mark.parametrize('float_type', [np.float32, np.float64])
+
+
+@for_np_float_types
+def test_xlate(float_type):
+    """We can translate coordinates using Transform."""
+    t = Transform.build(xlate=(1, -1))
+    coords = np.array([
+        (0, 0),
+        (1, 1),
+        (-1, -2),
+    ], dtype=float_type)
+    np.testing.assert_array_equal(
+        t.transform(coords),
+        np.array([
+            (1, -1),
+            (2, 0),
+            (0, -3),
+        ])
+    )
+
+
+@for_np_float_types
+def test_xform_inplace(float_type):
+    """We can transform coordinates in place."""
+    t = Transform.build(xlate=(1, -1), rot=pi / 2, scale=(2, 2))
+    coords = np.array([
+        (0, 0),
+        (1, 1),
+        (-1, -2),
+    ], dtype=float_type)
+
+    t.transform(coords, coords)
+    np.testing.assert_array_almost_equal(
+        coords,
+        np.array([
+            (1, -1),
+            (-1, 1),
+            (5, -3),
+        ])
+    )
