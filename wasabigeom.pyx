@@ -1231,23 +1231,51 @@ class SpatialHash:
                     seen.add(hit)
 
 
-
+@cython.freelist(32)
 cdef class Transform:
     """A 3x3 matrix representing an affine transform in 2D.
 
-    The values of the matrix are
+    The values of the matrix are ::
 
         (a b c)
         (d e f)
         (0 0 1)
 
     These matrices always a bottom row (0, 0, 1), and knowing this allows us to
-    skip some multiplications and drop some terms.
+    skip some multiplications and drop some terms vs multiplication of an
+    arbitrary 3x3 matrix (eg. in numpy).
+
+    Transforms can be multiplied together to chain them::
+
+        >>> a = Transform.build(xlate=(1, 2), rot=0.5)
+        >>> b = Transform.build(rot=-0.5)
+        >>> a * b
+        Transform(1., 0., 1.,
+                  0., 1., 2.)
+
+    Order matters! Matrix multiplication is not commutative (but it is
+    associative). To do transformation ``A`` followed by ``B`` is ``B * A``.
+
+    Transforms support the buffer protocol, meaning that they can be converted
+    to numpy arrays::
+
+        >>> numpy.asarray(Transform(2., 0., 1.,
+        ...                         0., 1., 2.))
+        array([[2., 0., 1.],
+               [0., 1., 2.]])
+
     """
     cdef double a, b, c, d, e, f
 
     @staticmethod
     def build(object xlate = (0, 0), double rot = 0.0, object scale = (1, 1)):
+        """Build a Transform from a translation, rotation and scale.
+
+        The operation order is scale first, then rotation, then translation. To
+        apply the operations different order, build Transforms representing the
+        individual operations and then multiply them.
+
+        """
         cdef double tx, ty
         cdef double sx, sy
         cdef double cos_theta, sin_theta
@@ -1270,6 +1298,7 @@ cdef class Transform:
         return m
 
     def __init__(self, double a, double b, double c, double d, double e, double f):
+        """Construct a Transform matrix from its components."""
         self.a = a
         self.b = b
         self.c = c
@@ -1278,9 +1307,7 @@ cdef class Transform:
         self.f = f
 
     def __mul__(object obja, object objb):
-        """Multiply the transform by another transform.
-        """
-        cdef Transform A, B, m
+        """Multiply the transform by another transform."""
         if isinstance(obja, Transform) and isinstance(objb, Transform):
             return Transform.matmul(obja, objb)
 
@@ -1288,6 +1315,7 @@ cdef class Transform:
 
     @staticmethod
     cdef matmul(Transform A, Transform B):
+        cdef Transform m
         m = Transform.__new__(Transform)
         m.a = A.a * B.a + A.b * B.d
         m.b = A.a * B.b + A.b * B.e
@@ -1299,7 +1327,13 @@ cdef class Transform:
 
         return m
 
-    def inverse(Transform self):
+    def inverse(self):
+        """Return the inverse transformation.
+
+        Raise ZeroDivisionError if the matrix is not invertible (eg. it has a
+        scale factor of 0).
+
+        """
         cdef Transform m
         cdef double det
 
@@ -1318,7 +1352,13 @@ cdef class Transform:
 
         return m
 
-    def factorise(Transform self):
+    def factorise(self):
+        """Split the transformation into translation, rotation, and scale.
+
+        This operation is approximate because it doesn't calculate or return
+        skew components, and therefore cannot represent all transforms.
+
+        """
         cdef double scale_x, scale_y, angle
         scale_x = sqrt(self.a * self.a + self.b * self.b)
         scale_y = sqrt(self.d * self.d + self.e * self.e)
@@ -1332,6 +1372,21 @@ cdef class Transform:
     def transform(self,
                   floating[:,:] input_view not None,
                   floating[:,:] output_view=None):
+        """Transform a buffer of coordinates using this matrix.
+
+        Coordinates may be floats or doubles.
+
+        If output_view is given, then it will be populated with the result
+        rather than returning a new numpy arry. It should be a writable buffer
+        object matching the shape of the input.
+
+        :param input_view: A 2D array of 2 coordinates to transform.
+        :param output_view: A 2D array of 2 coordinates to write to, or None
+                            to allocate a new array.
+        :returns: A numpy.ndarray, unless output_view is given.
+
+
+        """
         cdef floating x, y
 
         ret = None
@@ -1381,8 +1436,8 @@ cdef class Transform:
         )
 
 
-cdef Py_ssize_t[2] XFORM_SHAPE = [3, 2];
-cdef Py_ssize_t[2] XFORM_STRIDES = [sizeof(double), 3 * sizeof(double)]
+cdef Py_ssize_t[2] XFORM_SHAPE = [2, 3]
+cdef Py_ssize_t[2] XFORM_STRIDES = [3 * sizeof(double), sizeof(double)]
 
 
 cdef class Matrix:

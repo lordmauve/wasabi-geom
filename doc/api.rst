@@ -25,7 +25,15 @@ Vectors
 Transformations
 ---------------
 
+.. autoclass:: wasabigeom.Transform
+    :members: __init__, build, __mul__, transform, inverse, factorise
+
+
 .. autoclass:: wasabigeom.Matrix
+
+    .. deprecated:: 2.1.0
+
+        Use :class:`wasabigeom.Transform` instead.
 
 
 Geometric Primitives

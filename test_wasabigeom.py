@@ -181,6 +181,41 @@ def test_construct_from_array():
     assert vec2(a) == vec2(6, 5)
 
 
+def test_build_transform():
+    """We can build a transformation matrix from translate/rotate/scale."""
+    t = Transform.build(xlate=(3, 4), rot=pi / 4, scale=(2, 1))
+
+    root2 = 2 ** 0.5
+    np.testing.assert_array_almost_equal(
+        np.asarray(t),
+        np.array([
+            [root2 , root2 / -2, 3],
+            [root2, root2 / 2, 4],
+        ])
+    )
+
+
+def test_chain_transforms():
+    """We can chain together transformations by multiplying them."""
+    r = Transform.build(xlate=(1, 2), rot=0.5) * Transform.build(rot=-0.5)
+    np.testing.assert_array_almost_equal(
+        np.asarray(r),
+        np.asarray(Transform(1., 0., 1.,
+                             0., 1., 2.))
+    )
+
+
+def test_inverse():
+    """We can find the inverse transform."""
+    r = Transform.build(rot=0.5, scale=(2, 2))
+    invr = r.inverse()
+    np.testing.assert_array_almost_equal(
+        np.asarray(r * invr),
+        np.asarray(Transform(1., 0., 0.,
+                             0., 1., 0.))
+    )
+
+
 for_np_float_types = pytest.mark.parametrize('float_type', [np.float32, np.float64])
 
 

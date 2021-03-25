@@ -4,6 +4,7 @@ Changelog
 2.1.0 - unreleased
 ------------------
 
+* New: add :class:`wasabigeom.Transform` for 2D affine transformations.
 * Add vec2.from_polar() static method.
 * Can construct from any 2-sequence of floats
 
