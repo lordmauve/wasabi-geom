@@ -1268,6 +1268,20 @@ cdef class Transform:
     cdef double a, b, c, d, e, f
 
     @staticmethod
+    def identity():
+        """Return a new identity transform."""
+        cdef Transform m
+        m = Transform.__new__(Transform)
+        m.a = 1.0
+        m.b = 0.0
+        m.c = 0.0
+
+        m.d = 0.0
+        m.e = 1.0
+        m.f = 0.0
+        return m
+
+    @staticmethod
     def build(object xlate = (0, 0), double rot = 0.0, object scale = (1, 1)):
         """Build a Transform from a translation, rotation and scale.
 
@@ -1276,10 +1290,16 @@ cdef class Transform:
         individual operations and then multiply them.
 
         """
+        cdef Transform m
+        m = Transform.__new__(Transform)
+        m.set(xlate, rot, scale)
+        return m
+
+    def set(self, object xlate = (0, 0), double rot = 0.0, object scale = (1, 1)):
+        """Overwrite the transform using the given parameters."""
         cdef double tx, ty
         cdef double sx, sy
         cdef double cos_theta, sin_theta
-        cdef Transform m
 
         if not _extract(xlate, &tx, &ty) or not _extract(scale, &sx, &sy):
             raise TypeError("xlate and scale must be 2d vectors")
@@ -1287,15 +1307,13 @@ cdef class Transform:
         cos_theta = cos(rot)
         sin_theta = sin(rot)
 
-        m = Transform.__new__(Transform)
-        m.a = sx * cos_theta
-        m.b = sy * -sin_theta
-        m.c = tx
+        self.a = sx * cos_theta
+        self.b = sy * -sin_theta
+        self.c = tx
 
-        m.d = sx * sin_theta
-        m.e = sy * cos_theta
-        m.f = ty
-        return m
+        self.d = sx * sin_theta
+        self.e = sy * cos_theta
+        self.f = ty
 
     def __init__(self, double a, double b, double c, double d, double e, double f):
         """Construct a Transform matrix from its components."""
