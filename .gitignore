@@ -6,3 +6,7 @@
 /dist/
 /venv/
 /doc/_build/
+.hypothesis
+*.so
+wasabi_geom.egg-info
+.tox/
