@@ -34,6 +34,7 @@ cdef vec2 newvec2(double x, double y):
 
 
 @cython.freelist(32)
+@cython.final
 cdef class vec2:
     """Two-dimensional float vector implementation."""
     cdef readonly double x, y
@@ -1548,6 +1549,11 @@ def bresenham(int64_t x0, int64_t y0, int64_t x1, int64_t y1):
         D += 2*dy
 
 
+cdef ZRect asrect(object obj):
+    if isinstance(obj, ZRect):
+        return obj
+    return ZRect(obj)
+
 
 cdef class ZRect:
     """ZRect
@@ -1659,29 +1665,22 @@ cdef class ZRect:
         raise TypeError("ZRect instances may not be used as dictionary keys")
 
     def __eq__(self, other):
-        rect = self.__class__(*other)
-        return (self.x, self.y, self.w, self.h) == (rect.x, rect.y, rect.w, rect.h)
+        cdef ZRect rect = asrect(other)
+        return (
+            self.x == rect.x
+            and self.y == rect.y
+            and self.w == rect.w
+            and self.h == rect.h
+        )
 
     def __ne__(self, other):
-        rect = self.__class__(*other)
-        return (self.x, self.y, self.w, self.h) != (rect.x, rect.y, rect.w, rect.h)
-
-    def __lt__(self, other):
-        rect = self.__class__(*other)
-        return (self.x, self.y, self.w, self.h) < (rect.x, rect.y, rect.w, rect.h)
-
-    def __gt__(self, other):
-        rect = self.__class__(*other)
-        return (self.x, self.y, self.w, self.h) > (rect.x, rect.y, rect.w, rect.h)
-
-    def __le__(self, other):
-        rect = self.__class__(*other)
-        return (self.x, self.y, self.w, self.h) <= (rect.x, rect.y, rect.w, rect.h)
-
-    def __ge__(self, other):
-        rect = self.__class__(*other)
-        return (self.x, self.y, self.w, self.h) >= (rect.x, rect.y, rect.w, rect.h)
-
+        cdef ZRect rect = asrect(other)
+        return (
+            self.x != rect.x
+            or self.y != rect.y
+            or self.w != rect.w
+            or self.h != rect.h
+        )
     def __contains__(self, other):
         """Test whether a point (x, y) or another rectangle
         (anything accepted by ZRect) is contained within this ZRect
@@ -1691,12 +1690,13 @@ cdef class ZRect:
         else:
             return self.contains(*other)
 
-    def _get_width(self):
+    @property
+    def width(self):
         return self.w
 
-    def _set_width(self, width):
+    @width.setter
+    def width(self, width):
         self.w = width
-    width = property(_get_width, _set_width)
 
     def _get_height(self):
         return self.h
@@ -1881,7 +1881,7 @@ cdef class ZRect:
         rect = self.__class__(*other)
         self.x, self.y = self._clamped(rect)
 
-    def _clipped(self, *other):
+    cdef (double, double, double, double) _clipped(self, other):
         rect = self.__class__(*other)
 
         intersect = True
@@ -1926,8 +1926,8 @@ cdef class ZRect:
         rect = self.__class__(*other)
         self.x, self.y, self.w, self.h = self._clipped(rect)
 
-    def _unioned(self, *other):
-        rect = self.__class__(*other)
+    cdef (double, double, double, double) _unioned(self, other):
+        rect = self.__class__(other)
         x = min(self.x, rect.x)
         y = min(self.y, rect.y)
         w = max(self.x + self.w, rect.x + rect.w) - x
