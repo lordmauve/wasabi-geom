@@ -48,7 +48,7 @@ jobs:
     - name: Build wheel
       run: python -m cibuildwheel --output-dir wheelhouse
       env:
-        CIBW_SKIP: pp* cp310*
+        CIBW_SKIP: pp*
         CIBW_TEST_COMMAND: pytest {project}
         CIBW_BEFORE_TEST: pip install -r requirements-dev.txt
         CIBW_BUILD_VERBOSITY: 0
