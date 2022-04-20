@@ -1,8 +1,13 @@
 Changelog
 =========
 
-2.1.0 - unreleased
-------------------
+2.1.1 - released 2022-04-20
+---------------------------
+
+* Fix package compatibility with Python 3.10
+
+2.1.0 - released 2021-09-24
+---------------------------
 
 * New: add :class:`wasabigeom.Transform` for 2D affine transformations.
 * Add vec2.from_polar() static method.
