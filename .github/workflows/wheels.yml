@@ -2,10 +2,10 @@ name: "Build Wheels"
 
 on:
   workflow_dispatch:
+  pull_request:
   push:
-  release:
-    types:
-    - published
+    tags:
+      - '*'
 
 jobs:
   dist:
@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-18.04, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-13, macos-14, windows-latest]
 
     steps:
     - uses: actions/checkout@v1
@@ -69,7 +69,6 @@ jobs:
         name: artifact
         path: dist
 
-    - uses: pypa/gh-action-pypi-publish@master
+    - uses: pypa/gh-action-pypi-publish@v1.8.14
       with:
-        user: __token__
         password: ${{ secrets.pypi_password }}
