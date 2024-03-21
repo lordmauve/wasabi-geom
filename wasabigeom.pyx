@@ -11,9 +11,10 @@ from cython cimport floating
 
 cdef inline int _extract(object o, double *x, double *y) except -1:
     cdef int64_t l
+    cdef double tmp
     if isinstance(o, vec2):
-        x[0] = (<vec2> o).x;
-        y[0] = (<vec2> o).y;
+        x[0] = (<vec2> o).x
+        y[0] = (<vec2> o).y
         return 1
 
     if not PySequence_Check(o):
@@ -21,8 +22,9 @@ cdef inline int _extract(object o, double *x, double *y) except -1:
     if len(o) != 2:
         raise TypeError("Tuple was not of length 2")
 
-    x[0] = <double?> o[0];
-    y[0] = <double?> o[1];
+    tmp = <double?> o[0]
+    y[0] = <double?> o[1]
+    x[0] = tmp
     return 1
 
 
@@ -1555,6 +1557,15 @@ cdef ZRect asrect(object obj):
     return ZRect(obj)
 
 
+cdef ZRect newzrect(x: float, y: float, w: float, h: float):
+    r = ZRect.__new__(ZRect)
+    r.x = x
+    r.y = y
+    r.w = w
+    r.h = h
+    return r
+
+
 cdef class ZRect:
     """ZRect
 
@@ -1569,8 +1580,6 @@ cdef class ZRect:
     an (optionally callable) .rect attribute whose value will be used instead.
     """
     cdef public double x, y, w, h
-
-    _item_mapping = dict(enumerate("xywh"))
 
     def __init__(self, *args):
 
@@ -1587,7 +1596,8 @@ cdef class ZRect:
         if len(args) == 4:
             self.x, self.y, self.w, self.h = args
         elif len(args) == 2:
-            (self.x, self.y), (self.w, self.h) = args
+            _extract(args[0], &self.x, &self.y)
+            _extract(args[1], &self.w, &self.h)
         elif len(args) == 1:
             self.x, self.y, self.w, self.h = args[0]
         else:
@@ -1596,7 +1606,7 @@ cdef class ZRect:
                 % (self.__class__.__name__)
             )
 
-    def _handle_one_arg(self, arg):
+    cdef _handle_one_arg(self, arg):
         """Handle -- possibly recursively -- the case of one parameter
 
         Pygame -- and consequently pgzero -- is very accommodating when constructing
@@ -1638,21 +1648,17 @@ cdef class ZRect:
     def __len__(self):
         return 4
 
-    def __getitem__(self, item):
-        try:
-            return getattr(self, self._item_mapping[item])
-        except KeyError:
-            raise IndexError
+    def __getitem__(self, item: cython.int) -> float:
+        if 0 <= item < 4:
+            return (&self.x)[item]
+        raise IndexError
 
-    def __setitem__(self, item, value):
-        try:
-            attribute = self._item_mapping[item]
-        except KeyError:
-            raise IndexError
-        else:
-            setattr(self, attribute, value)
+    def __setitem__(self, item: cython.int, value: float) -> None:
+        if 0 <= item < 4:
+            (&self.x)[item] = value
+        raise IndexError
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return self.w != 0 and self.h != 0
 
     def __iter__(self):
@@ -1691,163 +1697,194 @@ cdef class ZRect:
             return self.contains(*other)
 
     @property
-    def width(self):
+    def width(self) -> float:
         return self.w
 
     @width.setter
-    def width(self, width):
+    def width(self, width: cython.double) -> None:
         self.w = width
 
-    def _get_height(self):
+    @property
+    def height(self) -> float:
         return self.h
 
-    def _set_height(self, height):
+    @height.setter
+    def height(self, height: float) -> None:
         self.h = height
-    height = property(_get_height, _set_height)
 
-    def _get_top(self):
+    @property
+    def top(self) -> float:
         return self.y
 
-    def _set_top(self, top):
+    @top.setter
+    def top(self, top: float) -> None:
         self.y = top
-    top = property(_get_top, _set_top)
 
-    def _get_left(self):
+    @property
+    def left(self) -> float:
         return self.x
 
-    def _set_left(self, left):
+    @left.setter
+    def left(self, left: float) -> None:
         self.x = left
-    left = property(_get_left, _set_left)
 
-    def _get_right(self):
+    @property
+    def right(self) -> float:
         return self.x + self.w
 
-    def _set_right(self, right):
+    @right.setter
+    def right(self, right: float) -> None:
         self.x = right - self.w
-    right = property(_get_right, _set_right)
 
-    def _get_bottom(self):
+    @property
+    def bottom(self) -> float:
         return self.y + self.h
 
-    def _set_bottom(self, bottom):
+    @bottom.setter
+    def bottom(self, bottom: float) -> None:
         self.y = bottom - self.h
-    bottom = property(_get_bottom, _set_bottom)
 
-    def _get_centerx(self):
+    @property
+    def centerx(self) -> float:
         return self.x + (self.w / 2)
 
-    def _set_centerx(self, centerx):
+    @centerx.setter
+    def centerx(self, centerx):
         self.x = centerx - (self.w / 2)
-    centerx = property(_get_centerx, _set_centerx)
 
-    def _get_centery(self):
+    @property
+    def centery(self) -> float:
         return self.y + (self.h / 2)
 
-    def _set_centery(self, centery):
+    @centery.setter
+    def centery(self, centery: float) -> None:
         self.y = centery - (self.h / 2)
-    centery = property(_get_centery, _set_centery)
 
-    def _get_topleft(self):
-        return self.x, self.y
+    @property
+    def topleft(self) -> vec2:
+        return newvec2(self.x, self.y)
 
-    def _set_topleft(self, topleft):
-        self.x, self.y = topleft
-    topleft = property(_get_topleft, _set_topleft)
+    @topleft.setter
+    def topleft(self, topleft):
+        _extract(topleft, &self.x, &self.y)
 
-    def _get_topright(self):
+    @property
+    def topright(self) -> float:
         return self.x + self.w, self.y
 
-    def _set_topright(self, topright):
-        x, y = topright
-        self.x = x - self.w
-        self.y = y
-    topright = property(_get_topright, _set_topright)
+    @topright.setter
+    def topright(self, topright: object) -> None:
+        cdef double right
+        _extract(topright, &right, &self.y)
+        self.x = right - self.w
 
-    def _get_bottomleft(self):
-        return self.x, self.y + self.h
+    @property
+    def bottomleft(self):
+        return newvec2(self.x, self.y + self.h)
 
-    def _set_bottomleft(self, bottomleft):
-        x, y = bottomleft
-        self.x = x
-        self.y = y - self.h
-    bottomleft = property(_get_bottomleft, _set_bottomleft)
+    @bottomleft.setter
+    def bottomleft(self, bottomleft):
+        cdef double bottom
+        _extract(bottomleft, &self.x, &bottom)
+        self.y = bottom - self.h
 
-    def _get_bottomright(self):
-        return self.x + self.w, self.y + self.h
+    @property
+    def bottomright(self):
+        return newvec2(self.x + self.w, self.y + self.h)
 
-    def _set_bottomright(self, bottomright):
-        x, y = bottomright
-        self.x = x - self.w
-        self.y = y - self.h
-    bottomright = property(_get_bottomright, _set_bottomright)
+    @bottomright.setter
+    def bottomright(self, bottomright):
+        cdef double right, bottom
+        _extract(bottomright, &right, &bottom)
+        self.x = right - self.w
+        self.y = bottom - self.h
 
-    def _get_midtop(self):
-        return self.x + self.w / 2, self.y
+    @property
+    def midtop(self) -> vec2:
+        return newvec2(self.x + self.w / 2, self.y)
 
-    def _set_midtop(self, midtop):
-        x, y = midtop
+    @midtop.setter
+    def midtop(self, midtop):
+        cdef double x
+        _extract(midtop, &x, &self.y)
         self.x = x - self.w / 2
-        self.y = y
-    midtop = property(_get_midtop, _set_midtop)
 
-    def _get_midleft(self):
-        return self.x, self.y + self.h / 2
+    @property
+    def midleft(self):
+        return newvec2(self.x, self.y + self.h / 2)
 
-    def _set_midleft(self, midleft):
-        x, y = midleft
-        self.x = x
+    @midleft.setter
+    def midleft(self, midleft):
+        cdef double y
+        _extract(midleft, &self.x, &y)
         self.y = y - self.h / 2
-    midleft = property(_get_midleft, _set_midleft)
 
-    def _get_midbottom(self):
-        return self.x + self.w / 2, self.y + self.h
+    @property
+    def midbottom(self):
+        return newvec2(self.x + self.w / 2, self.y + self.h)
 
-    def _set_midbottom(self, midbottom):
-        x, y = midbottom
+    @midbottom.setter
+    def midbottom(self, midbottom):
+        cdef double x, y
+        _extract(midbottom, &x, &y)
         self.x = x - self.w / 2
         self.y = y - self.h
-    midbottom = property(_get_midbottom, _set_midbottom)
 
-    def _get_midright(self):
-        return self.x + self.w, self.y + self.h / 2
+    @property
+    def midright(self):
+        return newvec2(self.x + self.w, self.y + self.h / 2)
 
-    def _set_midright(self, midright):
-        x, y = midright
+    @midright.setter
+    def midright(self, midright):
+        cdef double x, y
+        _extract(midright, &x, &y)
         self.x = x - self.w
         self.y = y - self.h / 2
-    midright = property(_get_midright, _set_midright)
 
-    def _get_center(self):
-        return self.x + self.w / 2, self.y + self.h / 2
+    @property
+    def center(self):
+        return newvec2(self.x + self.w / 2, self.y + self.h / 2)
 
-    def _set_center(self, center):
-        x, y = center
+    @center.setter
+    def center(self, center):
+        cdef double x, y
+        _extract(center, &x, &y)
         self.x = x - self.w / 2
         self.y = y - self.h / 2
-    center = property(_get_center, _set_center)
 
-    def _get_size(self):
-        return self.w, self.h
+    @property
+    def size(self):
+        return newvec2(self.w, self.h)
 
-    def _set_size(self, size):
-        self.w, self.h = size
-    size = property(_get_size, _set_size)
+    @size.setter
+    def size(self, size):
+        _extract(size, &self.w, &self.h)
 
-    def move(self, x, y):
-        return self.__class__(self.x + x, self.y + y, self.w, self.h)
+    def move(self, x: float, y: float) -> ZRect:
+        return newzrect(self.x + x, self.y + y, self.w, self.h)
 
-    def move_ip(self, x, y):
+    def move_ip(self, x: float, y: float):
         self.x += x
         self.y += y
 
-    def _inflated(self, x, y):
-        return self.x - x / 2, self.y - y / 2, self.w + x, self.h + y
+    cdef _inflated(
+        self,
+        double x,
+        double y,
+        ZRect out,
+    ):
+        out.x = self.x - x / 2
+        out.y = self.y - y / 2
+        out.w = self.w + x
+        out.h = self.h + y
 
-    def inflate(self, x, y):
-        return self.__class__(*self._inflated(x, y))
+    def inflate(self, x: float, y: float) -> ZRect:
+        cdef ZRect r = ZRect.__new__(ZRect)
+        self._inflated(x, y, r)
+        return r
 
-    def inflate_ip(self, x, y):
-        self.x, self.y, self.w, self.h = self._inflated(x, y)
+    def inflate_ip(self: ZRect, x: float, y: float) -> None:
+        self._inflated(x, y, self)
 
     def _clamped(self, *other):
         rect = self.__class__(*other)
