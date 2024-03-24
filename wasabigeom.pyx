@@ -1642,7 +1642,8 @@ cdef class ZRect:
         return self.__class__, (self.x, self.y, self.w, self.h)
 
     def copy(self):
-        return self.__class__(self.x, self.y, self.w, self.h)
+        return newzrect(self.x, self.y, self.w, self.h)
+
     __copy__ = copy
 
     def __len__(self):
@@ -1672,21 +1673,24 @@ cdef class ZRect:
 
     def __eq__(self, other):
         cdef ZRect rect = asrect(other)
-        return (
+        cdef bint eq = (
             self.x == rect.x
             and self.y == rect.y
             and self.w == rect.w
             and self.h == rect.h
         )
+        return eq
 
     def __ne__(self, other):
         cdef ZRect rect = asrect(other)
-        return (
+        cdef bint ne = (
             self.x != rect.x
             or self.y != rect.y
             or self.w != rect.w
             or self.h != rect.h
         )
+        return ne
+
     def __contains__(self, other):
         """Test whether a point (x, y) or another rectangle
         (anything accepted by ZRect) is contained within this ZRect
@@ -1868,7 +1872,7 @@ cdef class ZRect:
         self.y += y
 
     cdef _inflated(
-        self,
+        ZRect self,
         double x,
         double y,
         ZRect out,
@@ -1886,9 +1890,7 @@ cdef class ZRect:
     def inflate_ip(self: ZRect, x: float, y: float) -> None:
         self._inflated(x, y, self)
 
-    def _clamped(self, *other):
-        rect = self.__class__(*other)
-
+    cdef (double, double) _clamped(self, ZRect rect):
         if self.w >= rect.w:
             x = rect.x + rect.w / 2 - self.w / 2
         elif self.x < rect.x:
@@ -1910,18 +1912,17 @@ cdef class ZRect:
         return x, y
 
     def clamp(self, *other):
-        rect = self.__class__(*other)
-        x, y = self._clamped(rect)
-        return self.__class__(x, y, self.w, self.h)
+        cdef double x, y
+        x, y = self._clamped(ZRect(*other))
+        return newzrect(x, y, self.w, self.h)
 
     def clamp_ip(self, *other):
-        rect = self.__class__(*other)
-        self.x, self.y = self._clamped(rect)
+        self.x, self.y = self._clamped(ZRect(*other))
 
-    cdef (double, double, double, double) _clipped(self, other):
-        rect = self.__class__(*other)
+    cdef (double, double, double, double) _clipped(self, ZRect rect):
+        cdef double x, y, w, h
 
-        intersect = True
+        cdef bint intersect = True
         if self.x >= rect.x and self.x < (rect.x + rect.w):
             x = self.x
         elif rect.x >= self.x and rect.x < (self.x + self.w):
@@ -1955,52 +1956,53 @@ cdef class ZRect:
         return self.x, self.y, 0, 0
 
     def clip(self, *other):
-        rect = self.__class__(*other)
-        x, y, w, h = self._clipped(rect)
-        return self.__class__(x, y, w, h)
+        cdef double x, y, w, h
+        x, y, w, h = self._clipped(ZRect(*other))
+        return newzrect(x, y, w, h)
 
     def clip_ip(self, *other):
-        rect = self.__class__(*other)
-        self.x, self.y, self.w, self.h = self._clipped(rect)
+        self.x, self.y, self.w, self.h = self._clipped(ZRect(*other))
 
-    cdef (double, double, double, double) _unioned(self, other):
-        rect = self.__class__(other)
-        x = min(self.x, rect.x)
-        y = min(self.y, rect.y)
-        w = max(self.x + self.w, rect.x + rect.w) - x
-        h = max(self.y + self.h, rect.y + rect.h) - y
-        return x, y, w, h
+    cdef void _union(ZRect out, ZRect rect):
+        cdef double x, y
+        x = min(out.x, rect.x)
+        y = min(out.y, rect.y)
+        out.w = max(out.x + out.w, rect.x + rect.w) - x
+        out.h = max(out.y + out.h, rect.y + rect.h) - y
+        out.x = x
+        out.y = y
 
     def union(self, *other):
-        rect = self.__class__(*other)
-        return self.__class__(*self._unioned(rect))
+        cdef ZRect out = newzrect(self.x, self.y, self.w, self.h)
+        ZRect._union(out, ZRect(*other))
+        return out
 
     def union_ip(self, *other):
-        rect = self.__class__(*other)
-        self.x, self.y, self.w, self.h = self._unioned(rect)
-
-    def _unionalled(self, others):
-        allrects = [self] + [self.__class__(other) for other in others]
-        x = min(r.x for r in allrects)
-        y = min(r.y for r in allrects)
-        w = max(r.x + r.w for r in allrects) - x
-        h = max(r.y + r.h for r in allrects) - y
-        return x, y, w, h
+        ZRect._union(self, ZRect(*other))
 
     def unionall(self, others):
-        return self.__class__(*self._unionalled(others))
+        cdef ZRect out = newzrect(self.x, self.y, self.w, self.h)
+        for r in others:
+            ZRect._union(out, asrect(r))
+        return out
 
     def unionall_ip(self, others):
-        self.x, self.y, self.w, self.h = self._unionalled(others)
+        # Build a new Rect first in case any type conversion fails
+        cdef ZRect union = self.unionall(others)
+        self.x = union.x
+        self.y = union.y
+        self.w = union.w
+        self.h = union.h
 
     def fit(self, *other):
-        rect = self.__class__(*other)
+        cdef ZRect rect = ZRect(*other)
+        cdef double x, y, w, h
         ratio = max(self.w / rect.w, self.h / rect.h)
         w = self.w / ratio
         h = self.h / ratio
         x = rect.x + (rect.w - w) / 2
         y = rect.y + (rect.h - h) / 2
-        return self.__class__(x, y, w, h)
+        return newzrect(x, y, w, h)
 
     def normalize(self):
         if self.w < 0:
@@ -2010,9 +2012,9 @@ cdef class ZRect:
             self.y += self.h
             self.h = abs(self.h)
 
-    def contains(self, *other):
-        rect = self.__class__(*other)
-        return (
+    def contains(self, *other) -> bool:
+        cdef ZRect rect = ZRect(*other)
+        cdef bint contains = (
             self.x <= rect.x and
             self.y <= rect.y and
             self.x + self.w >= rect.x + rect.w and
@@ -2020,25 +2022,29 @@ cdef class ZRect:
             self.x + self.w > rect.x and
             self.y + self.h > rect.y
         )
+        return contains
 
-    def collidepoint(self, *args):
+    def collidepoint(self, *args) -> bool:
+        cdef double x, y
         if len(args) == 1:
-            x, y = args[0]
+            _extract(args[0], &x, &y)
         else:
             x, y = args
-        return (
+        cdef bint collides = (
             self.x <= x < (self.x + self.w) and
             self.y <= y < (self.y + self.h)
         )
+        return collides
 
     def colliderect(self, *other):
-        rect = self.__class__(*other)
-        return (
+        cdef ZRect rect = ZRect(*other)
+        cdef bint collides = (
             self.x < rect.x + rect.w and
             self.y < rect.y + rect.h and
             self.x + self.w > rect.x and
             self.y + self.h > rect.y
         )
+        return collides
 
     def collidelist(self, others):
         for n, other in enumerate(others):
@@ -2050,12 +2056,12 @@ cdef class ZRect:
     def collidelistall(self, others):
         return [n for n, other in enumerate(others) if self.colliderect(other)]
 
-    def collidedict(self, dict, use_values=True):
+    def collidedict(self, dict: dict, use_values: bool = True):
         for k, v in dict.items():
             if self.colliderect(v if use_values else k):
                 return k, v
 
-    def collidedictall(self, dict: dict, use_values=True):
+    def collidedictall(self, dict: dict, use_values: bool = True):
         if use_values:
             return [i for i in dict.items() if self.colliderect(i[1])]
         else:
