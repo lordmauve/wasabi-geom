@@ -1,27 +1,3 @@
-[project]
-name = "wasabi-geom"
-version = "2.2.0"
-description = "2D geometry types for game dev, in fast Cython code"
-authors = [{ name = "Daniel Pope", email = "mauve@mauveweb.co.uk" }]
-classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python :: 3",
-]
-readme = "README.md"
-
-[project.optional-dependencies]
-dev = [
-    "pytest",
-    "hypothesis",
-    "Sphinx>=2",
-    "numpy",
-    "pygame",
-]
-
-[project.urls]
-Home = "https://github.com/lordmauve/wasabigeom"
-
 [build-system]
-requires = ["setuptools>61", "wheel", "Cython"]
+requires = ["setuptools", "wheel", "Cython"]
 build-backend = "setuptools.build_meta"

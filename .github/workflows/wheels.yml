@@ -6,6 +6,7 @@ on:
   push:
     tags:
       - '*'
+    branches: [zrect]
 
 jobs:
   dist:
@@ -48,7 +49,7 @@ jobs:
     - name: Build wheel
       run: python -m cibuildwheel --output-dir wheelhouse
       env:
-        CIBW_SKIP: pp* cp36*
+        CIBW_SKIP: pp*
         CIBW_TEST_COMMAND: pytest {project}
         CIBW_BEFORE_TEST: pip install --prefer-binary -r requirements-dev.txt
         CIBW_BUILD_VERBOSITY: 0
