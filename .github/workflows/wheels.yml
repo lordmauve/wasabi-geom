@@ -53,10 +53,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-13, macos-14, windows-latest]
-        skip: ["pp* *musllinux*"]
+        skip:
+          - "pp* *musllinux* cp3?-*"
+          - "pp* *musllinux* cp3??-*"
         include:
           - os: ubuntu-latest
-            skip: "pp* *manylinux*"
+            skip: "pp* *manylinux* cp3?-*"
+          - os: ubuntu-latest
+            skip: "pp* *manylinux* cp3??-*"
 
     steps:
     - uses: actions/checkout@v4
@@ -64,7 +68,7 @@ jobs:
         submodules: true
 
     - name: Setup Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
 
     - name: Install cibuildwheel
       run: python -m pip install cibuildwheel
