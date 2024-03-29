@@ -37,9 +37,10 @@ jobs:
 
         ALLOWED_AUTHORS = ["lordmauve"]
 
-        github_event = json.loads(os.environ.get['EVENT'])
-        github_token = os.environ.get("GITHUB_TOKEN")
+        github_event = json.loads(os.environ['EVENT'])
+        github_token = os.environ["GITHUB_TOKEN"]
 
+        print(json.dumps(github_event, indent=2))
 
         if github_event.get("pull_request") is None:
             print("Not a pull request run.")
