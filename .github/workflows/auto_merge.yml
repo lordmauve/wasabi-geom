@@ -42,12 +42,13 @@ jobs:
 
         print(json.dumps(github_event, indent=2))
 
-        if github_event.get("pull_request") is None:
+        if not github_event.get("pull_requests"):
             print("Not a pull request run.")
             sys.exit()
 
-        pull_number = github_event["pull_request"]["number"]
-        pr_author = github_event["pull_request"]["user"]["login"]
+        pr = github_event['pull_requests'][0]
+        pull_number = pr["number"]
+        pr_author = github_event["workflow_run"]["actor"]["login"]
 
         if pr_author not in ALLOWED_AUTHORS:
             print(f"PR author {pr_author} is not in the allowed list.")
@@ -63,7 +64,7 @@ jobs:
         }
         data = {
           "merge_method": "merge",
-          "sha": github_event['workflow_run']['head_commit']['id']
+          "sha": event['workflow_run']['head_commit']['id']
         }
         response = requests.put(api_url, headers=headers, json=data)
 
