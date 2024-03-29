@@ -11,9 +11,10 @@ from cython cimport floating
 
 cdef inline int _extract(object o, double *x, double *y) except -1:
     cdef int64_t l
+    cdef double tmp
     if isinstance(o, vec2):
-        x[0] = (<vec2> o).x;
-        y[0] = (<vec2> o).y;
+        x[0] = (<vec2> o).x
+        y[0] = (<vec2> o).y
         return 1
 
     if not PySequence_Check(o):
@@ -21,8 +22,9 @@ cdef inline int _extract(object o, double *x, double *y) except -1:
     if len(o) != 2:
         raise TypeError("Tuple was not of length 2")
 
-    x[0] = <double?> o[0];
-    y[0] = <double?> o[1];
+    tmp = <double?> o[0]
+    y[0] = <double?> o[1]
+    x[0] = tmp
     return 1
 
 
@@ -34,6 +36,7 @@ cdef vec2 newvec2(double x, double y):
 
 
 @cython.freelist(32)
+@cython.final
 cdef class vec2:
     """Two-dimensional float vector implementation."""
     cdef readonly double x, y
@@ -1546,3 +1549,520 @@ def bresenham(int64_t x0, int64_t y0, int64_t x1, int64_t y1):
             y += 1
             D -= 2*dx
         D += 2*dy
+
+
+cdef ZRect asrect(object obj):
+    if isinstance(obj, ZRect):
+        return obj
+    return ZRect(obj)
+
+
+cdef ZRect newzrect(x: float, y: float, w: float, h: float):
+    r = ZRect.__new__(ZRect)
+    r.x = x
+    r.y = y
+    r.w = w
+    r.h = h
+    return r
+
+
+cdef class ZRect:
+    """ZRect
+
+    This is a Cython implementation of the pygame Rect class. Its raison
+    d'être is to allow the coordinates to be floating point. All pygame
+    functions which require a rect allow for an object with a "rect"
+    attribute and whose coordinates will be converted to integers implictly.
+
+    All functions which require a dict will use the flexible constructor
+    to convert from: this (or a subclass); a Pygame Rect; a 4-tuple or a
+    pair of 2-tuples. In addition, they'll recognise any object which has
+    an (optionally callable) .rect attribute whose value will be used instead.
+    """
+    cdef public double x, y, w, h
+
+    def __init__(self, *args):
+
+        if len(args) == 1:
+            args = tuple(self._handle_one_arg(args[0]))
+
+        #
+        # At this point we have one of:
+        #
+        # x, y, w, h
+        # (x, y), (w, h)
+        # (x, y, w, h),
+        #
+        if len(args) == 4:
+            self.x, self.y, self.w, self.h = args
+        elif len(args) == 2:
+            _extract(args[0], &self.x, &self.y)
+            _extract(args[1], &self.w, &self.h)
+        elif len(args) == 1:
+            self.x, self.y, self.w, self.h = args[0]
+        else:
+            raise TypeError(
+                "%s should be called with one, two or four arguments"
+                % (self.__class__.__name__)
+            )
+
+    cdef _handle_one_arg(self, arg):
+        """Handle -- possibly recursively -- the case of one parameter
+
+        Pygame -- and consequently pgzero -- is very accommodating when constructing
+        a rect. You can pass four integers, two pairs of 2-tuples, or one 4-tuple.
+
+        Also, you can pass an existing Rect-like object, or an object with a .rect
+        attribute. The object named by the .rect attribute is either one of the above,
+        or it's a callable object which returns one of the above.
+
+        This is evidently a recursive solution where an object with a .rect
+        attribute can yield an object with a .rect attribute, and so ad infinitum.
+        """
+        #
+        # If it's something with a .rect attribute, start again with
+        # that attribute, calling it first if it's callable
+        #
+        if hasattr(arg, "rect"):
+            rectobj = arg.rect
+            if callable(rectobj):
+                rectobj = rectobj()
+            return self._handle_one_arg(rectobj)
+
+        #
+        # Otherwise, we assume it's an iterable of four elements
+        #
+        return arg
+
+    def __repr__(self):
+        return "<%s (x: %s, y: %s, w: %s, h: %s)>" % (
+            self.__class__.__name__, self.x, self.y, self.w, self.h)
+
+    def __reduce__(self):
+        return self.__class__, (self.x, self.y, self.w, self.h)
+
+    def copy(self):
+        return newzrect(self.x, self.y, self.w, self.h)
+
+    __copy__ = copy
+
+    def __len__(self):
+        return 4
+
+    def __getitem__(self, item: cython.int) -> float:
+        if 0 <= item < 4:
+            return (&self.x)[item]
+        raise IndexError
+
+    def __setitem__(self, item: cython.int, value: float) -> None:
+        if 0 <= item < 4:
+            (&self.x)[item] = value
+        raise IndexError
+
+    def __bool__(self) -> bool:
+        return self.w != 0 and self.h != 0
+
+    def __iter__(self):
+        yield self.x
+        yield self.y
+        yield self.w
+        yield self.h
+
+    def __hash__(self):
+        raise TypeError("ZRect instances may not be used as dictionary keys")
+
+    def __eq__(self, other):
+        cdef ZRect rect = asrect(other)
+        cdef bint eq = (
+            self.x == rect.x
+            and self.y == rect.y
+            and self.w == rect.w
+            and self.h == rect.h
+        )
+        return eq
+
+    def __ne__(self, other):
+        cdef ZRect rect = asrect(other)
+        cdef bint ne = (
+            self.x != rect.x
+            or self.y != rect.y
+            or self.w != rect.w
+            or self.h != rect.h
+        )
+        return ne
+
+    def __contains__(self, other):
+        """Test whether a point (x, y) or another rectangle
+        (anything accepted by ZRect) is contained within this ZRect
+        """
+        if len(other) == 2:
+            return self.collidepoint(*other)
+        else:
+            return self.contains(*other)
+
+    @property
+    def width(self) -> float:
+        return self.w
+
+    @width.setter
+    def width(self, width: cython.double) -> None:
+        self.w = width
+
+    @property
+    def height(self) -> float:
+        return self.h
+
+    @height.setter
+    def height(self, height: float) -> None:
+        self.h = height
+
+    @property
+    def top(self) -> float:
+        return self.y
+
+    @top.setter
+    def top(self, top: float) -> None:
+        self.y = top
+
+    @property
+    def left(self) -> float:
+        return self.x
+
+    @left.setter
+    def left(self, left: float) -> None:
+        self.x = left
+
+    @property
+    def right(self) -> float:
+        return self.x + self.w
+
+    @right.setter
+    def right(self, right: float) -> None:
+        self.x = right - self.w
+
+    @property
+    def bottom(self) -> float:
+        return self.y + self.h
+
+    @bottom.setter
+    def bottom(self, bottom: float) -> None:
+        self.y = bottom - self.h
+
+    @property
+    def centerx(self) -> float:
+        return self.x + (self.w / 2)
+
+    @centerx.setter
+    def centerx(self, centerx):
+        self.x = centerx - (self.w / 2)
+
+    @property
+    def centery(self) -> float:
+        return self.y + (self.h / 2)
+
+    @centery.setter
+    def centery(self, centery: float) -> None:
+        self.y = centery - (self.h / 2)
+
+    @property
+    def topleft(self) -> vec2:
+        return newvec2(self.x, self.y)
+
+    @topleft.setter
+    def topleft(self, topleft):
+        _extract(topleft, &self.x, &self.y)
+
+    @property
+    def topright(self) -> float:
+        return self.x + self.w, self.y
+
+    @topright.setter
+    def topright(self, topright: object) -> None:
+        cdef double right
+        _extract(topright, &right, &self.y)
+        self.x = right - self.w
+
+    @property
+    def bottomleft(self):
+        return newvec2(self.x, self.y + self.h)
+
+    @bottomleft.setter
+    def bottomleft(self, bottomleft):
+        cdef double bottom
+        _extract(bottomleft, &self.x, &bottom)
+        self.y = bottom - self.h
+
+    @property
+    def bottomright(self):
+        return newvec2(self.x + self.w, self.y + self.h)
+
+    @bottomright.setter
+    def bottomright(self, bottomright):
+        cdef double right, bottom
+        _extract(bottomright, &right, &bottom)
+        self.x = right - self.w
+        self.y = bottom - self.h
+
+    @property
+    def midtop(self) -> vec2:
+        return newvec2(self.x + self.w / 2, self.y)
+
+    @midtop.setter
+    def midtop(self, midtop):
+        cdef double x
+        _extract(midtop, &x, &self.y)
+        self.x = x - self.w / 2
+
+    @property
+    def midleft(self):
+        return newvec2(self.x, self.y + self.h / 2)
+
+    @midleft.setter
+    def midleft(self, midleft):
+        cdef double y
+        _extract(midleft, &self.x, &y)
+        self.y = y - self.h / 2
+
+    @property
+    def midbottom(self):
+        return newvec2(self.x + self.w / 2, self.y + self.h)
+
+    @midbottom.setter
+    def midbottom(self, midbottom):
+        cdef double x, y
+        _extract(midbottom, &x, &y)
+        self.x = x - self.w / 2
+        self.y = y - self.h
+
+    @property
+    def midright(self):
+        return newvec2(self.x + self.w, self.y + self.h / 2)
+
+    @midright.setter
+    def midright(self, midright):
+        cdef double x, y
+        _extract(midright, &x, &y)
+        self.x = x - self.w
+        self.y = y - self.h / 2
+
+    @property
+    def center(self):
+        return newvec2(self.x + self.w / 2, self.y + self.h / 2)
+
+    @center.setter
+    def center(self, center):
+        cdef double x, y
+        _extract(center, &x, &y)
+        self.x = x - self.w / 2
+        self.y = y - self.h / 2
+
+    @property
+    def size(self):
+        return newvec2(self.w, self.h)
+
+    @size.setter
+    def size(self, size):
+        _extract(size, &self.w, &self.h)
+
+    def move(self, x: float, y: float) -> ZRect:
+        return newzrect(self.x + x, self.y + y, self.w, self.h)
+
+    def move_ip(self, x: float, y: float):
+        self.x += x
+        self.y += y
+
+    cdef _inflated(
+        ZRect self,
+        double x,
+        double y,
+        ZRect out,
+    ):
+        out.x = self.x - x / 2
+        out.y = self.y - y / 2
+        out.w = self.w + x
+        out.h = self.h + y
+
+    def inflate(self, x: float, y: float) -> ZRect:
+        cdef ZRect r = ZRect.__new__(ZRect)
+        self._inflated(x, y, r)
+        return r
+
+    def inflate_ip(self: ZRect, x: float, y: float) -> None:
+        self._inflated(x, y, self)
+
+    cdef (double, double) _clamped(self, ZRect rect):
+        if self.w >= rect.w:
+            x = rect.x + rect.w / 2 - self.w / 2
+        elif self.x < rect.x:
+            x = rect.x
+        elif self.x + self.w > rect.x + rect.w:
+            x = rect.x + rect.w - self.w
+        else:
+            x = self.x
+
+        if self.h >= rect.h:
+            y = rect.y + rect.h / 2 - self.h / 2
+        elif self.y < rect.y:
+            y = rect.y
+        elif self.y + self.h > rect.y + rect.h:
+            y = rect.y + rect.h - self.h
+        else:
+            y = self.y
+
+        return x, y
+
+    def clamp(self, *other):
+        cdef double x, y
+        x, y = self._clamped(ZRect(*other))
+        return newzrect(x, y, self.w, self.h)
+
+    def clamp_ip(self, *other):
+        self.x, self.y = self._clamped(ZRect(*other))
+
+    cdef (double, double, double, double) _clipped(self, ZRect rect):
+        cdef double x, y, w, h
+
+        cdef bint intersect = True
+        if self.x >= rect.x and self.x < (rect.x + rect.w):
+            x = self.x
+        elif rect.x >= self.x and rect.x < (self.x + self.w):
+            x = rect.x
+        else:
+            intersect = False
+
+        if (self.x + self.w) > rect.x and (self.x + self.w) <= (rect.x + rect.w):
+            w = self.x + self.w - x
+        elif (rect.x + rect.w) > self.x and (rect.x + rect.w) <= (self.x + self.w):
+            w = rect.x + rect.w - x
+        else:
+            intersect = False
+
+        if self.y >= rect.y and self.y < (rect.y + rect.h):
+            y = self.y
+        elif rect.y >= self.y and rect.y < (self.y + self.h):
+            y = rect.y
+        else:
+            intersect = False
+
+        if (self.y + self.h) > rect.y and (self.y + self.h) <= (rect.y + rect.h):
+            h = self.y + self.h - y
+        elif (rect.y + rect.h) > self.y and (rect.y + rect.h) <= (self.y + self.h):
+            h = rect.y + rect.h - y
+        else:
+            intersect = False
+
+        if intersect:
+            return x, y, w, h
+        return self.x, self.y, 0, 0
+
+    def clip(self, *other):
+        cdef double x, y, w, h
+        x, y, w, h = self._clipped(ZRect(*other))
+        return newzrect(x, y, w, h)
+
+    def clip_ip(self, *other):
+        self.x, self.y, self.w, self.h = self._clipped(ZRect(*other))
+
+    cdef void _union(ZRect out, ZRect rect):
+        cdef double x, y
+        x = min(out.x, rect.x)
+        y = min(out.y, rect.y)
+        out.w = max(out.x + out.w, rect.x + rect.w) - x
+        out.h = max(out.y + out.h, rect.y + rect.h) - y
+        out.x = x
+        out.y = y
+
+    def union(self, *other):
+        cdef ZRect out = newzrect(self.x, self.y, self.w, self.h)
+        ZRect._union(out, ZRect(*other))
+        return out
+
+    def union_ip(self, *other):
+        ZRect._union(self, ZRect(*other))
+
+    def unionall(self, others):
+        cdef ZRect out = newzrect(self.x, self.y, self.w, self.h)
+        for r in others:
+            ZRect._union(out, asrect(r))
+        return out
+
+    def unionall_ip(self, others):
+        # Build a new Rect first in case any type conversion fails
+        cdef ZRect union = self.unionall(others)
+        self.x = union.x
+        self.y = union.y
+        self.w = union.w
+        self.h = union.h
+
+    def fit(self, *other):
+        cdef ZRect rect = ZRect(*other)
+        cdef double x, y, w, h
+        ratio = max(self.w / rect.w, self.h / rect.h)
+        w = self.w / ratio
+        h = self.h / ratio
+        x = rect.x + (rect.w - w) / 2
+        y = rect.y + (rect.h - h) / 2
+        return newzrect(x, y, w, h)
+
+    def normalize(self):
+        if self.w < 0:
+            self.x += self.w
+            self.w = abs(self.w)
+        if self.h < 0:
+            self.y += self.h
+            self.h = abs(self.h)
+
+    def contains(self, *other) -> bool:
+        cdef ZRect rect = ZRect(*other)
+        cdef bint contains = (
+            self.x <= rect.x and
+            self.y <= rect.y and
+            self.x + self.w >= rect.x + rect.w and
+            self.y + self.h >= rect.y + rect.h and
+            self.x + self.w > rect.x and
+            self.y + self.h > rect.y
+        )
+        return contains
+
+    def collidepoint(self, *args) -> bool:
+        cdef double x, y
+        if len(args) == 1:
+            _extract(args[0], &x, &y)
+        else:
+            x, y = args
+        cdef bint collides = (
+            self.x <= x < (self.x + self.w) and
+            self.y <= y < (self.y + self.h)
+        )
+        return collides
+
+    def colliderect(self, *other):
+        cdef ZRect rect = ZRect(*other)
+        cdef bint collides = (
+            self.x < rect.x + rect.w and
+            self.y < rect.y + rect.h and
+            self.x + self.w > rect.x and
+            self.y + self.h > rect.y
+        )
+        return collides
+
+    def collidelist(self, others):
+        for n, other in enumerate(others):
+            if self.colliderect(other):
+                return n
+        else:
+            return -1
+
+    def collidelistall(self, others):
+        return [n for n, other in enumerate(others) if self.colliderect(other)]
+
+    def collidedict(self, dict: dict, use_values: bool = True):
+        for k, v in dict.items():
+            if self.colliderect(v if use_values else k):
+                return k, v
+
+    def collidedictall(self, dict: dict, use_values: bool = True):
+        if use_values:
+            return [i for i in dict.items() if self.colliderect(i[1])]
+        else:
+            return [i for i in dict.items() if self.colliderect(i[0])]

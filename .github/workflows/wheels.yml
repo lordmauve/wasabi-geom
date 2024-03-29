@@ -1,4 +1,4 @@
-name: "Build Wheels"
+name: "Build and Test"
 
 on:
   workflow_dispatch:
@@ -8,39 +8,66 @@ on:
       - '*'
 
 jobs:
-  dist:
+  test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
-        python-version: 3.8
+        cache: pip
+        cache-dependency-path: |
+          setup.cfg
+          pyproject.toml
+          requirements-dev.txt
 
     - name: Install wheel and SDist requirements
-      run: python -m pip install "setuptools>=42.0" cython wheel twine
+      run: pip install .[dev]
+
+    - name: Pytest
+      run: pytest
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+
+    - name: Install wheel and SDist requirements
+      run: pip install build
 
     - name: Build SDist
-      run: python setup.py sdist
+      run: python -m build --sdist
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
+        name: sdist
         path: dist/*.tar.gz
+        compression-level: 0
 
   build_wheels:
+    needs: [test]
     name: Wheel on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-13, macos-14, windows-latest]
+        skip:
+          - "pp* *musllinux* cp3?-*"
+          - "pp* *musllinux* cp3??-*"
+        include:
+          - os: ubuntu-latest
+            skip: "pp* *manylinux* cp3?-*"
+          - os: ubuntu-latest
+            skip: "pp* *manylinux* cp3??-*"
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
     - name: Setup Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
 
     - name: Install cibuildwheel
       run: python -m pip install cibuildwheel
@@ -48,26 +75,26 @@ jobs:
     - name: Build wheel
       run: python -m cibuildwheel --output-dir wheelhouse
       env:
-        CIBW_SKIP: pp*
-        CIBW_TEST_COMMAND: pytest {project}
-        CIBW_BEFORE_TEST: pip install --prefer-binary -r requirements-dev.txt
+        CIBW_SKIP: ${{ matrix.skip }}
         CIBW_BUILD_VERBOSITY: 0
 
     - name: Upload wheels
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
+        name: wheels-${{ hashFiles('wheelhouse/*.whl') }}
         path: wheelhouse/*.whl
+        compression-level: 0
 
   publish:
-    needs: [dist, build_wheels]
+    needs: [sdist, build_wheels]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
 
     steps:
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4
       with:
-        name: artifact
         path: dist
+        merge-multiple: true
 
     - uses: pypa/gh-action-pypi-publish@v1.8.14
       with:

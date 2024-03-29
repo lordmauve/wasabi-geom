@@ -20,7 +20,7 @@ def timeit(name, stmt):
 
 from wasabigeom import vec2 as v
 
-print("*** cyvec ***")
+print("*** wasabigeom.vec2 ***")
 timeit("Addition", "a + b")
 timeit("In-place addition", "c += b")
 timeit("Dot", "a.dot(b)")

@@ -3,3 +3,4 @@ pytest
 hypothesis
 Sphinx>=2
 numpy
+pygame  # for rect tests
