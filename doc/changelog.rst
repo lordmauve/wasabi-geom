@@ -1,6 +1,13 @@
 Changelog
 =========
 
+2.2.0 - released 2024-04-01
+---------------------------
+
+* New: add :class:`wasabigeom.ZRect`, with the pygame.Rect API, but using
+  floating-point internally, and returning `vec2` for all ccoordinate queries.
+
+
 2.1.1 - released 2022-04-20
 ---------------------------
 
@@ -10,8 +17,8 @@ Changelog
 ---------------------------
 
 * New: add :class:`wasabigeom.Transform` for 2D affine transformations.
-* Add vec2.from_polar() static method.
-* Can construct from any 2-sequence of floats
+* New: vec2.from_polar() static method.
+* New: construct vec2 from any 2-sequence of floats
 
 
 2.0.1 - released 2020-09-27
