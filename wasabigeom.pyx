@@ -1,7 +1,7 @@
 #cython: language_level=3, c_api_binop_methods=True
 
 cimport cython
-from libc.math cimport sqrt, atan2, cos, sin, floor, pi
+from libc.math cimport sqrt, atan2, cos, sin, floor, pi, asin, acos, ceil
 from libc.stdlib cimport llabs
 from libc.stdint cimport int64_t, uint64_t
 from cpython.sequence cimport PySequence_Check
@@ -2193,4 +2193,91 @@ def cubic_bezier(v0, v1, v2, v3, double tolerance=0.5) -> list[vec2]:
 
     _cubic_bezier_subdivide(v0vec, v1vec, v2vec, v3vec, tolerance, points, 0)
     points.append(v3vec)
+    return points
+
+
+def circular_arc(vec2 p0, vec2 p1, double radius, bint clockwise, double tolerance=0.5) -> list:
+    """
+    Compute points along a circular arc from p0 to p1 for a circle with the given radius.
+    The arc is drawn in the specified direction (clockwise if True) and subdivided into
+    segments such that the maximum deviation (sagitta) of each chord from the true arc is
+    within the tolerance.
+
+    Parameters:
+      p0, p1 : vec2
+          The end‑points of the arc.
+      radius : float
+          The radius of the circle. The chord between p0 and p1 must be at most 2*radius.
+      clockwise : bool
+          If True the arc is drawn in a clockwise direction; otherwise, anticlockwise.
+      tolerance : float, default 0.5
+          The maximum allowed sagitta for each segment.
+
+    Returns:
+      A list of vec2 points along the arc.
+    """
+    cdef double d2, d, dx, dy, h, mx, my, cx, cy, start_angle, theta, sweep, dtheta_max, dtheta, angle, x, y
+    cdef vec2 sep, m, center
+    cdef double perp_x, perp_y
+    cdef int n_segments, i
+    cdef list points = []
+
+    # Compute the chord vector and its length (squared).
+    sep = p1 - p0
+    dx = p1.x - p0.x
+    dy = p1.y - p0.y
+    d2 = sep.length_squared()
+    if d2 > 4.0 * radius * radius:
+        raise ValueError("Chord length exceeds diameter for the given radius")
+    if d2 == 0.0:
+        return [p0]
+
+    d = sqrt(d2)
+
+    # Compute the chord midpoint using vec2 arithmetic.
+    m = p0 + sep * 0.5
+    mx = m.x
+    my = m.y
+
+    # Compute h = √(radius² - (d/2)²)
+    h = sqrt(radius * radius - d2 / 4.0)
+
+    # Determine the unit-length perpendicular vector.
+    if clockwise:
+        perp_x = dy / d
+        perp_y = -dx / d
+    else:
+        perp_x = -dy / d
+        perp_y = dx / d
+
+    # Determine the circle center.
+    cx = mx + h * perp_x
+    cy = my + h * perp_y
+    center = vec2(cx, cy)
+
+    # Compute the starting angle (angle from center to p0).
+    start_angle = atan2(p0.y - cy, p0.x - cx)
+    # The chord subtends an angle theta at the circle’s centre.
+    theta = 2.0 * asin(d / (2.0 * radius))
+    # Sweep is negative if drawing clockwise.
+    sweep = -theta if clockwise else theta
+
+    # Determine the maximum segment angle so that the sagitta
+    # (radius * (1 - cos(dtheta/2))) is below tolerance.
+    if tolerance >= radius:
+        dtheta_max = abs(sweep)
+    else:
+        dtheta_max = 2.0 * acos(1.0 - tolerance / radius)
+        if dtheta_max > abs(sweep):
+            dtheta_max = abs(sweep)
+
+    n_segments = <int>ceil(abs(sweep) / dtheta_max)
+    dtheta = sweep / n_segments
+
+    for i in range(n_segments + 1):
+        angle = start_angle + i * dtheta
+        x = cx + radius * cos(angle)
+        y = cy + radius * sin(angle)
+        points.append(vec2(x, y))
+
     return points
