@@ -1,5 +1,7 @@
+from copy import copy
 import math
 import sys
+from typing import Self
 import pygame
 from wasabigeom import vec2, quadratic_bezier, cubic_bezier, arc_to_cubic_beziers, Transform
 
@@ -14,6 +16,7 @@ class Path:
         self.segments = []
         self._start = None   # starting point of the current subpath (vec2)
         self.current = None  # current point (vec2)
+        self.stroke = None
         self.color = (128, 128, 128)
         self.position = vec2(0, 0)
         self.angle = 0
@@ -120,10 +123,23 @@ class Path:
 
     def draw(self):
         """Draw the polygon on screen as a filled shape."""
+        if not self.color and not self.stroke:
+            return
         poly = self._to_poly(tolerance=0.5)
         if len(poly) < 2:
             return
-        pygame.draw.polygon(screen, self.color, poly)
+        if self.color:
+            pygame.draw.polygon(screen, self.color, poly)
+        if self.stroke:
+            pygame.draw.lines(screen, self.stroke, False, poly, 1)
+
+    def shadow(self, offset = vec2(5, 5), color = (128, 128, 128)) -> Self:
+        """Return a copy of the path with a shadow offset by the given vector."""
+        p = copy(self)
+        p.position += offset
+        p.color = color
+        p.stroke = None
+        return p
 
     @classmethod
     def rect(cls, rect: pygame.Rect) -> "Path":
@@ -269,28 +285,38 @@ class Path:
         return p
 
 
+def darker(color):
+    r, g, b = color
+    return r * 2 // 3, g * 2 // 3, b * 2 // 3
+
 # Create a plain rectangle from a pygame.Rect:
 rect_path = Path.rect(pygame.Rect(50, 50, 200, 150))
 rect_path.color = (255, 200, 128)
+rect_path.stroke = darker(rect_path.color)
 
 # Create a regular pentagon:
 pentagon = Path.ngon(vec2(300, 300), 100, 5)
 pentagon.color = (128, 200, 255)
+pentagon.stroke = darker(pentagon.color)
 
 # Create a rounded rectangle:
 rrect = Path.rounded_rect(pygame.Rect(400, 100, 250, 200), radius=30)
 rrect.color = (164, 225, 128)
+rrect.stroke = darker(rrect.color)
 
 # Create a circle:
 circle = Path.circle(vec2(150, 450), 75)
 circle.color = (255, 128, 128)
 circle.scale = (1.5, 1)
+circle.stroke = darker(circle.color)
 
 # Create a star with rounded points:
 star = Path.star(vec2(500, 450), outer_radius=100, inner_radius=50,
                  num_points=5, roundness=10)
 star.color = (255, 128, 255)
+star.stroke = darker(star.color)
 
+SHADOW = (192, 192, 192)
 
 SHAPES = (rect_path, pentagon, rrect, circle, star)
 
@@ -308,6 +334,8 @@ while True:
     # Draw the paths
     for i, poly in enumerate(SHAPES):
         poly.angle = 0.1 * math.sin(t + i)
+    for poly in SHAPES:
+        poly.shadow(color=SHADOW).draw()
     for poly in SHAPES:
         poly.draw()
     pygame.display.flip()
