@@ -4,9 +4,9 @@ Changelog
 2.3.0 - released 2025-02-09
 ---------------------------
 
-* New: add :func:`wasabigeom.quadratic_bezier` and
-  :func:`wasabigeom.cubic_bezier` to subdivide quadratic and cubic Bézier curves
-  for rasterisation.
+* New: add :func:`wasabigeom.quadratic_bezier`, :func:`wasabigeom.cubic_bezier`
+  and :func:`wasabigeom.circular_arc` to subdivide quadratic and cubic Bézier
+  curves and circular arcs for rasterisation.
 
 
 2.2.0 - released 2024-04-01
