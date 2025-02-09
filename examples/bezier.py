@@ -69,26 +69,24 @@ def draw_filled_closed_bezier(surface, color):
           The fill colour (e.g. (173, 216, 230) for light blue).
     """
     pts = compute_closed_bezier()
-    # Convert each vec2 point to an (x, y) tuple.
-    polygon_points = [(p.x, p.y) for p in pts]
-    pygame.draw.polygon(surface, color, polygon_points)
+    pygame.draw.polygon(surface, color, pts)
 
 # This variable will keep track of a control point being dragged.
-# It will store a tuple: (curve, index), where curve is either "quad" or "cubic".
-selected_control = None
+# It will store a tuple: (control_list, index)
+selected_control: tuple[list[vec2], int] | None = None
 
 
-def draw_curve(points, color):
+def draw_curve(points: list[vec2], color):
     """Draw a curve by connecting the list of vec2 points with line segments."""
     if len(points) < 2:
         return
-    pygame.draw.lines(screen, color, False, [(p.x, p.y) for p in points], 2)
+    pygame.draw.lines(screen, color, False, points, 2)
 
 
 def draw_control_points(controls, color):
     """Draw the control points as filled circles."""
     for p in controls:
-        pygame.draw.circle(screen, color, (int(p.x), int(p.y)), CONTROL_RADIUS)
+        pygame.draw.circle(screen, color, p, CONTROL_RADIUS)
 
 
 def draw_control_polygon(controls):
@@ -114,7 +112,7 @@ def draw():
 
     draw_filled_closed_bezier(screen, (173, 216, 230))
     draw_control_polygon(shape_controls)
-    draw_control_points(shape_controls, RED)
+    draw_control_points(shape_controls, BLUE)
 
     # --- Draw quadratic Bézier ---
     draw_control_polygon(quad_controls)
@@ -148,10 +146,9 @@ def get_control_under_mouse(pos):
     return None
 
 
-draw()
+dirty = True
 running = True
 while running:
-    dirty = False
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -175,4 +172,5 @@ while running:
 
     if dirty:
         draw()
+        dirty = False
     clock.tick(60)
