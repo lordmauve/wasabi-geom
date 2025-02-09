@@ -5,7 +5,7 @@ from wasabigeom import quadratic_bezier, cubic_bezier, vec2
 
 # Initialise Pygame.
 pygame.init()
-width, height = 800, 600
+width, height = 800, 1000
 screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption("Bézier Curves Demo")
 clock = pygame.time.Clock()
@@ -26,11 +26,52 @@ quad_controls = [vec2(100.0, 150.0), vec2(400.0, 50.0), vec2(700.0, 150.0)]
 
 # Create control points for the cubic Bézier (bottom half).
 cubic_controls = [
-    vec2(100.0, 450.0),
-    vec2(300.0, 350.0),
-    vec2(500.0, 550.0),
-    vec2(700.0, 450.0),
+    vec2(100.0, 350.0),
+    vec2(300.0, 250.0),
+    vec2(500.0, 450.0),
+    vec2(700.0, 350.0),
 ]
+
+shape_controls = [
+    vec2(200.0, 550.0),
+    vec2(400.0, 450.0),
+    vec2(600.0, 550.0),
+    vec2(700.0, 700.0),
+    vec2(400.0, 850.0),
+    vec2(100.0, 700.0)
+]
+
+
+def compute_closed_bezier():
+    """
+    Compute the full list of vec2 points for a closed quadratic Bézier curve composed
+    of three segments using adaptive subdivision.
+    """
+    tol = 0.5  # Tolerance in metres for adaptive subdivision.
+    E0, C0, E1, C1, E2, C2 = shape_controls
+    pts0 = quadratic_bezier(E0, C0, E1, tol)
+    pts1 = quadratic_bezier(E1, C1, E2, tol)
+    pts2 = quadratic_bezier(E2, C2, E0, tol)
+    # Each segment returns its starting point, so we remove duplicates.
+    return pts0[:-1] + pts1[:-1] + pts2
+
+
+def draw_filled_closed_bezier(surface, color):
+    """
+    Draw a filled closed Bézier curve on the given surface.
+
+    The curve is computed from three quadratic Bézier segments forming a closed loop.
+
+    Parameters:
+      surface : pygame.Surface
+          The surface to draw on.
+      color : tuple
+          The fill colour (e.g. (173, 216, 230) for light blue).
+    """
+    pts = compute_closed_bezier()
+    # Convert each vec2 point to an (x, y) tuple.
+    polygon_points = [(p.x, p.y) for p in pts]
+    pygame.draw.polygon(surface, color, polygon_points)
 
 # This variable will keep track of a control point being dragged.
 # It will store a tuple: (curve, index), where curve is either "quad" or "cubic".
@@ -60,11 +101,20 @@ def draw_control_polygon(controls):
         case (a, b, c, d):
             line(a, b)
             line(c, d)
+        case _:
+            for i in range(len(controls) + 1)[::2]:
+                a, b, c = (controls[i:] + controls[:i])[:3]
+                line(a, b)
+                line(b, c)
 
 
 def draw():
     # Clear the screen.
     screen.fill(WHITE)
+
+    draw_filled_closed_bezier(screen, (173, 216, 230))
+    draw_control_polygon(shape_controls)
+    draw_control_points(shape_controls, RED)
 
     # --- Draw quadratic Bézier ---
     draw_control_polygon(quad_controls)
@@ -90,13 +140,11 @@ def get_control_under_mouse(pos):
     Return a tuple (curve, index) if the mouse is over a control point.
     Search quadratic first then cubic.
     """
-    mx, my = pos
-    for i, p in enumerate(quad_controls):
-        if (p.x - mx) ** 2 + (p.y - my) ** 2 <= CONTROL_RADIUS**2:
-            return (quad_controls, i)
-    for i, p in enumerate(cubic_controls):
-        if (p.x - mx) ** 2 + (p.y - my) ** 2 <= CONTROL_RADIUS**2:
-            return (cubic_controls, i)
+    mouse = vec2(*pos)
+    for controls in (quad_controls, cubic_controls, shape_controls):
+        for i, p in enumerate(controls):
+            if mouse.distance_to(p) < CONTROL_RADIUS:
+                return (controls, i)
     return None
 
 
