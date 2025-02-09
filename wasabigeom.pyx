@@ -2066,3 +2066,131 @@ cdef class ZRect:
             return [i for i in dict.items() if self.colliderect(i[1])]
         else:
             return [i for i in dict.items() if self.colliderect(i[0])]
+
+
+cdef inline void _quad_bezier_subdivide(vec2 v0, vec2 v1, vec2 v2, double tol, list acc):
+    """
+    Recursively subdivide the quadratic Bézier curve defined by control points v0, v1, v2,
+    appending the start point of each flat segment into the accumulator list 'acc'.
+    The subdivision is based on the distance between the curve's midpoint and the chord's midpoint.
+
+    Parameters:
+      v0, v1, v2 : vec2
+          The control points defining the Bézier segment.
+      tol : double
+          The tolerance (in metres) for flatness.
+      acc : list
+          The accumulator list where points are appended.
+    """
+    # Calculate the midpoints using De Casteljau's algorithm.
+    cdef vec2 m0 = (v0 + v1) * 0.5
+    cdef vec2 m1 = (v1 + v2) * 0.5
+    cdef vec2 m  = (m0 + m1) * 0.5
+    cdef vec2 chord_mid = (v0 + v2) * 0.5
+
+    # If the distance between the curve's midpoint and the chord's midpoint is within tolerance,
+    # consider this segment flat enough.
+    if m.distance_to(chord_mid) < tol:
+        acc.append(v0)
+    else:
+        # Recursively subdivide the left and right segments.
+        _quad_bezier_subdivide(v0, m0, m, tol, acc)
+        _quad_bezier_subdivide(m, m1, v2, tol, acc)
+
+
+cdef vec2 asvec(object obj):
+    cdef vec2 v
+    cdef double x, y
+    _extract(obj, &x, &y)
+    return newvec2(x, y)
+
+
+def quadratic_bezier(v0, v1, v2, double tolerance=0.5) -> list[vec2]:
+    """
+    Approximate a quadratic Bézier curve (defined by control points v0, v1, v2) with a series
+    of points computed via adaptive subdivision. This version minimises memory allocations by
+    using a single accumulator list during recursion.
+
+    Parameters:
+      v0, v1, v2 : vec2
+          The control points (in metres).
+      tolerance : double
+          The maximum allowed deviation between the true curve midpoint and the chord midpoint.
+
+    Returns:
+      A list of vec2 points that approximate the curve with each segment being sufficiently flat.
+
+    The algorithm works by recursively subdividing the curve until each segment is flat enough.
+    Only the start point of each flat segment is stored, and the final control point is appended
+    at the end.
+    """
+    cdef list points = []
+
+    cdef v0vec = asvec(v0)
+    cdef v1vec = asvec(v1)
+    cdef v2vec = asvec(v2)
+
+    _quad_bezier_subdivide(v0vec, v1vec, v2vec, tolerance, points)
+    points.append(v2vec)
+    return points
+
+cdef inline void _cubic_bezier_subdivide(vec2 v0, vec2 v1, vec2 v2, vec2 v3, double tol, list acc, unsigned int level):
+    """
+    Recursively subdivide a cubic Bézier curve defined by control points v0, v1, v2, v3.
+    Uses the De Casteljau algorithm to compute intermediate midpoints and compares the
+    true curve midpoint (p0123) to the chord midpoint ( (v0+v3)/2 ). If the distance between
+    these is below tol, the segment is considered flat and v0 is appended to acc. Otherwise,
+    the curve is subdivided into two halves.
+    """
+    # Compute first-level midpoints.
+    cdef vec2 p01 = (v0 + v1) * 0.5
+    cdef vec2 p12 = (v1 + v2) * 0.5
+    cdef vec2 p23 = (v2 + v3) * 0.5
+
+    # Compute second-level midpoints.
+    cdef vec2 p012 = (p01 + p12) * 0.5
+    cdef vec2 p123 = (p12 + p23) * 0.5
+
+    # Compute the curve midpoint.
+    cdef vec2 p0123 = (p012 + p123) * 0.5
+
+    # Compute the chord midpoint.
+    cdef vec2 chord_mid = (v0 + v3) * 0.5
+
+    # If the deviation is within tolerance, consider the segment flat.
+    if level > 0 and p0123.distance_to(chord_mid) < tol:
+        acc.append(v0)
+    else:
+        _cubic_bezier_subdivide(v0, p01, p012, p0123, tol, acc, 1)
+        _cubic_bezier_subdivide(p0123, p123, p23, v3, tol, acc, 1)
+
+
+def cubic_bezier(v0, v1, v2, v3, double tolerance=0.5) -> list[vec2]:
+    """
+    Approximate a cubic Bézier curve (defined by control points v0, v1, v2, v3) with a series
+    of points computed via adaptive subdivision. This version minimises memory allocations by
+    using a single accumulator list during recursion.
+
+    Parameters:
+      v0, v1, v2, v3 : vec2
+          The control points (in metres).
+      tolerance : double
+          The maximum allowed deviation between the true curve midpoint and the chord midpoint.
+
+    Returns:
+      A list of vec2 points that approximate the curve with each segment being sufficiently flat.
+
+    The algorithm works by recursively subdividing the curve until each segment is flat enough.
+    Only the start point of each flat segment is stored, and the final control point is appended
+    at the end.
+    """
+    cdef list points = []
+
+    cdef vec2 v0vec = asvec(v0)
+    cdef vec2 v1vec = asvec(v1)
+    cdef vec2 v2vec = asvec(v2)
+    cdef vec2 v3vec = asvec(v3)
+
+    _cubic_bezier_subdivide(v0vec, v1vec, v2vec, v3vec, tolerance, points, 0)
+    points.append(v3vec)
+    return points
