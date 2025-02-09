@@ -2107,23 +2107,24 @@ cdef vec2 asvec(object obj):
 
 def quadratic_bezier(v0, v1, v2, double tolerance=0.5) -> list[vec2]:
     """
-    Approximate a quadratic Bézier curve (defined by control points v0, v1, v2) with a series
-    of points computed via adaptive subdivision. This version minimises memory allocations by
-    using a single accumulator list during recursion.
+    Approximate a quadratic Bézier curve (defined by control points v0, v1, v2)
+    with a series of points computed via adaptive subdivision.
 
     Parameters:
       v0, v1, v2 : vec2
-          The control points (in metres).
+          The control points. The curve starts at v0 and ends at v2. v1 is the
+          control point.
       tolerance : double
-          The maximum allowed deviation between the true curve midpoint and the chord midpoint.
+          The maximum allowed deviation between the true curve midpoint and the
+          chord midpoint.
 
     Returns:
-      A list of vec2 points that approximate the curve with each segment being sufficiently flat.
-
-    The algorithm works by recursively subdividing the curve until each segment is flat enough.
-    Only the start point of each flat segment is stored, and the final control point is appended
-    at the end.
+      A list of vec2 points that approximate the curve with each segment being
+      sufficiently flat.
     """
+    # The algorithm works by recursively subdividing the curve until each
+    # segment is flat enough. Only the start point of each flat segment is
+    # stored, and the final control point is appended at the end.
     cdef list points = []
 
     cdef v0vec = asvec(v0)
@@ -2133,6 +2134,7 @@ def quadratic_bezier(v0, v1, v2, double tolerance=0.5) -> list[vec2]:
     _quad_bezier_subdivide(v0vec, v1vec, v2vec, tolerance, points)
     points.append(v2vec)
     return points
+
 
 cdef inline void _cubic_bezier_subdivide(vec2 v0, vec2 v1, vec2 v2, vec2 v3, double tol, list acc, unsigned int level):
     """
@@ -2167,22 +2169,20 @@ cdef inline void _cubic_bezier_subdivide(vec2 v0, vec2 v1, vec2 v2, vec2 v3, dou
 
 def cubic_bezier(v0, v1, v2, v3, double tolerance=0.5) -> list[vec2]:
     """
-    Approximate a cubic Bézier curve (defined by control points v0, v1, v2, v3) with a series
-    of points computed via adaptive subdivision. This version minimises memory allocations by
-    using a single accumulator list during recursion.
+    Approximate a cubic Bézier curve (defined by control points v0, v1, v2, v3)
+    with a series of points computed via adaptive subdivision.
 
     Parameters:
       v0, v1, v2, v3 : vec2
-          The control points (in metres).
+          The control points. v0 and v3 are the start and end points of the
+          curve; v1 and v2 are the control points.
       tolerance : double
-          The maximum allowed deviation between the true curve midpoint and the chord midpoint.
+          The maximum allowed deviation between the true curve midpoint and the
+          chord midpoint.
 
     Returns:
-      A list of vec2 points that approximate the curve with each segment being sufficiently flat.
-
-    The algorithm works by recursively subdividing the curve until each segment is flat enough.
-    Only the start point of each flat segment is stored, and the final control point is appended
-    at the end.
+      A list of vec2 points that approximate the curve with each segment being
+      sufficiently flat.
     """
     cdef list points = []
 

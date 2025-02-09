@@ -59,7 +59,8 @@ Rasterisation
 -------------
 
 .. autofunction:: wasabigeom.bresenham
-
+.. autofunction:: wasabigeom.quadratic_bezier
+.. autofunction:: wasabigeom.cubic_bezier
 
 Axis-Aligned, pygame-compatible Rect
 ------------------------------------
