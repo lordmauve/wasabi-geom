@@ -133,6 +133,61 @@ class Path:
         if self.stroke:
             pygame.draw.lines(screen, self.stroke, False, poly, 1)
 
+    def collidepoint(self, point) -> bool:
+        """
+        Determine if a point is inside a closed polygon using the ray-casting algorithm.
+
+        The algorithm conceptually 'casts' a horizontal ray from the point to the right
+        and counts how many polygon edges it intersects. If the number of intersections
+        is odd, the point is inside; if it's even, the point is outside.
+
+        Parameters:
+            point (vec2):
+                The point to test.
+            polygon (List[vec2]):
+                A list of vertices (as vec2 instances) representing the polygon. The
+                polygon is assumed to be closed (the last vertex connects to the first).
+
+        Returns:
+            bool:
+                True if the point lies inside the polygon; False otherwise.
+        """
+        polygon = self._to_poly(tolerance=2)
+
+        inside = False
+        n = len(polygon)
+
+        # A polygon needs at least 3 points
+        if n < 3:
+            return False
+
+        for i in range(n):
+            # The current vertex is polygon[i]
+            # The previous vertex is polygon[i - 1] (using wrap-around with modulus)
+            j = (i - 1) % n
+            current_vertex = polygon[i]
+            prev_vertex = polygon[j]
+
+            # Check if the horizontal ray at point.y intersects
+            # the edge [prev_vertex, current_vertex].
+            if (current_vertex.y > point.y) != (prev_vertex.y > point.y):
+                # Vector from current_vertex to prev_vertex
+                edge = prev_vertex - current_vertex
+
+                # Compute how far along this edge we have to go
+                # (in terms of y difference) to get to point.y
+                slope_factor = (point.y - current_vertex.y) / edge.y  # edge.y won't be 0 because it crosses point.y
+
+                # Get the intersection point by moving 'slope_factor'
+                # along the edge from current_vertex
+                intersection = current_vertex + edge * slope_factor
+
+                # If the intersection is to the right of the point, toggle 'inside'
+                if point.x < intersection.x:
+                    inside = not inside
+
+        return inside
+
     def shadow(self, offset = vec2(5, 5), color = (128, 128, 128)) -> Self:
         """Return a copy of the path with a shadow offset by the given vector."""
         p = copy(self)
@@ -318,8 +373,12 @@ star.stroke = darker(star.color)
 
 SHADOW = (192, 192, 192)
 
-SHAPES = (rect_path, pentagon, rrect, circle, star)
+SHAPES = [rect_path, pentagon, rrect, circle, star]
+for shape in SHAPES:
+    shape.orig_scale = shape.scale
 
+selected_shape = None
+transition = 0
 # Draw the paths on the screen:
 pygame.init()
 screen = pygame.display.set_mode((800, 600))
@@ -330,14 +389,33 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            pos = vec2(*event.pos)
+            for shape in SHAPES:
+                if shape.collidepoint(pos):
+                    if selected_shape:
+                        selected_shape.scale = selected_shape.orig_scale
+                    selected_shape = shape
+                    SHAPES.remove(shape)
+                    SHAPES.append(shape)
+                    break
+            else:
+                if selected_shape:
+                    selected_shape.scale = selected_shape.orig_scale
+                    selected_shape = None
     screen.fill((255, 255, 255))
     # Draw the paths
-    for i, poly in enumerate(SHAPES):
-        poly.angle = 0.1 * math.sin(t + i)
-    for poly in SHAPES:
-        poly.shadow(color=SHADOW).draw()
-    for poly in SHAPES:
-        poly.draw()
+    for i, shape in enumerate(SHAPES):
+        if shape is selected_shape:
+            transition += 1
+            fac = 1.5 + 0.1 * math.sin(transition / 10)
+            shape.scale = (shape.orig_scale[0] * fac, shape.orig_scale[1] * fac)
+            continue
+        shape.angle = 0.1 * math.sin(t + i)
+    for shape in SHAPES:
+        shape.shadow(color=SHADOW).draw()
+    for shape in SHAPES:
+        shape.draw()
     pygame.display.flip()
     dt = clock.tick(60)
     t += dt / 1000
