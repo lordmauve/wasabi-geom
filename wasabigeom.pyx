@@ -54,7 +54,7 @@ cdef bint radians_unsure = 0
 
 
 class RadiansWarning(Warning):
-    """A warning about the use of radians."""
+    """A warning about the use of radians.""""
 
 
 cdef inline void warn_radians(func: str, deg_func: str, rad_func: str) noexcept:
