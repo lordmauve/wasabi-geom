@@ -5,6 +5,8 @@ from libc.math cimport sqrt, atan2, cos, sin, floor, pi, asin, acos, ceil
 from libc.stdlib cimport llabs
 from libc.stdint cimport int64_t, uint64_t
 from cpython.sequence cimport PySequence_Check
+from cpython.unicode cimport PyUnicode_AsUTF8
+from cpython.exc cimport PyErr_WarnEx
 from cpython cimport Py_buffer
 from cython cimport floating
 
@@ -35,6 +37,43 @@ cdef vec2 newvec2(double x, double y):
     return v
 
 
+cdef str RADIANS_WARNING = """\
+You called a method vec2.{}() which uses angles in radians, not angles in \
+degrees. Radians are the "natural" unit of angle in mathematics and computing. \
+A radian is about 57.3 degrees. 180 degrees is pi radians (about 3.14).
+
+If you want to use degrees, use the function vec2.{}(). To explicitly use \
+radians, use vec2.{}().
+
+If you are happy using radians, call vec2.radians_are_awesome() to suppress \
+this message globally.\
+"""
+
+
+cdef bint radians_unsure = 0
+
+
+class RadiansWarning(Warning):
+    """A warning about the use of radians."""
+
+
+cdef inline void warn_radians(func: str, deg_func: str, rad_func: str) noexcept:
+    """Warn about the use of radians."""
+    global radians_unsure
+    if radians_unsure:
+        warning = RADIANS_WARNING.format(func, deg_func, rad_func)
+        PyErr_WarnEx(RadiansWarning, warning.encode(), 1)
+        radians_unsure = 0
+
+
+cdef double degrees(double radians) noexcept:
+    return radians * (180.0 / pi)
+
+
+cdef double radians(double degrees) noexcept:
+    return degrees * (pi / 180.0)
+
+
 @cython.freelist(32)
 @cython.final
 cdef class vec2:
@@ -55,6 +94,11 @@ cdef class vec2:
 
     cdef object stringify(self):
         return f"vec2({self.x!r}, {self.y!r})"
+
+    @staticmethod
+    def radians_are_awesome(v: bool = True) -> None:
+        global radians_unsure
+        radians_unsure = not v
 
     def __str__(self):
         """Construct a concise string representation."""
@@ -102,7 +146,16 @@ cdef class vec2:
 
     cpdef double angle(self):
         """The angle the vector makes to the positive x axis, in radians."""
+        warn_radians("angle", "angle_degrees", "angle_radians")
+        return self.angle_radians()
+
+    cpdef double angle_radians(self):
+        """The angle the vector makes to the positive x axis, in radians."""
         return atan2(self.y, self.x)
+
+    cpdef double angle_degrees(self):
+        """The angle the vector makes to the positive x axis, in degrees."""
+        return degrees(atan2(self.y, self.x))
 
     cpdef bint is_zero(self):
         """Test if this is the zero vector."""
@@ -190,7 +243,28 @@ cdef class vec2:
         """Compute the unary negation of the vector."""
         return newvec2(-self.x, -self.y)
 
-    def rotated(vec2 self, double angle):
+    cpdef vec2 rotated_degrees(vec2 self, double angle):
+        """Compute the vector rotated by an angle in degrees.
+
+        :Parameters:
+            `angle` : float
+                The angle (in degrees) by which to rotate.
+
+        """
+        return self.rotated_radians(radians(angle))
+
+    cpdef vec2 rotated(vec2 self, double angle):
+        """Compute the vector rotated by an angle in radians, with a warning.
+
+        :Parameters:
+            `angle` : float
+                The angle (in radians) by which to rotate.
+
+        """
+        warn_radians("rotated", "rotated_degrees", "rotated_radians")
+        return self.rotated_radians(angle)
+
+    cpdef vec2 rotated_radians(vec2 self, double angle):
         """Compute the vector rotated by an angle.
 
         :Parameters:
@@ -288,7 +362,7 @@ cdef class vec2:
         """
         return self * self.dot(other) / self.dot(self)
 
-    def angle_to(self, other):
+    cpdef double angle_to_radians(self, other):
         """Compute the angle made to another vector in the range [0, pi].
 
         :Parameters:
@@ -298,10 +372,31 @@ cdef class vec2:
         """
         if not isinstance(other, vec2):
             other = vec2(other)
-        a = abs(other.angle() - self.angle())
+        a = abs(other.angle_radians() - self.angle_radians())
         return min(a, 2 * pi - a)
 
-    def signed_angle_to(self, other):
+    cpdef double angle_to_degrees(self, other):
+        """Compute the angle made to another vector in degrees in the range [0, 180].
+
+        :Parameters:
+            `other` : vec2
+                The vector with which to compute the angle.
+
+        """
+        return degrees(self.angle_to_radians(other))
+
+    cpdef double angle_to(self, other):
+        """Compute the angle made to another vector in radians in the range [0, pi].
+
+        :Parameters:
+            `other` : vec2
+                The vector with which to compute the angle.
+
+        """
+        warn_radians("angle_to", "angle_to_degrees", "angle_to_radians")
+        return self.angle_to_radians(other)
+
+    cpdef double signed_angle_to_radians(self, other):
         """Compute the signed angle made to another vector in the range.
 
         :Parameters:
@@ -314,12 +409,55 @@ cdef class vec2:
         a = other.angle() - self.angle()
         return min(a + pi, a, a - pi, key=abs)
 
-    def to_polar(vec2 self):
-        return self.length(), self.angle()
+    cpdef double signed_angle_to_degrees(self, other):
+        """Compute the signed angle made to another vector in degrees.
+
+        :Parameters:
+            `other` : vec2
+                The vector with which to compute the angle.
+
+        """
+        return degrees(self.signed_angle_to_radians(other))
+
+    cpdef double signed_angle_to(self, other):
+        """Compute the signed angle made to another vector in radians.
+
+        :Parameters:
+            `other` : vec2
+                The vector with which to compute the angle.
+
+        """
+        warn_radians("signed_angle_to", "signed_angle_to_degrees", "signed_angle_to_radians")
+        return self.signed_angle_to_radians(other)
+
+    cpdef (double, double) to_polar_radians(vec2 self):
+        """Return (length, angle) in polar coordinates, with angle in radians."""
+        return self.length(), self.angle_radians()
+
+    cpdef (double, double) to_polar_degrees(vec2 self):
+        """Return (length, angle) in polar coordinates, with angle in degrees."""
+        return self.length(), self.angle_degrees()
+
+    cpdef (double, double) to_polar(vec2 self):
+        """Return (length, angle) in polar coordinates, with angle in radians, and a warning."""
+        warn_radians("to_polar", "to_polar_degrees", "to_polar_radians")
+        return self.length(), self.angle_radians()
+
+    @staticmethod
+    def from_polar_radians(double length, double angle):
+        """Construct a vec2 from polar coordinates with angle in radians."""
+        return newvec2(length * cos(angle), length * sin(angle))
+
+    @staticmethod
+    def from_polar_degrees(double length, double angle):
+        """Construct a vec2 from polar coordinates with angle in degrees."""
+        angle = radians(angle)
+        return newvec2(length * cos(angle), length * sin(angle))
 
     @staticmethod
     def from_polar(double length, double angle):
-        """Construct a vec2 from polar coordinates."""
+        """Construct a vec2 from polar coordinates with angle in radians, with a warning."""
+        warn_radians("from_polar", "from_polar_degrees", "from_polar_radians")
         return newvec2(length * cos(angle), length * sin(angle))
 
     def distance_to(vec2 self, other):
