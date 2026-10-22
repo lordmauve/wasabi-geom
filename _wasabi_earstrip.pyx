@@ -12,6 +12,8 @@ cdef extern from "earstrip_bridge.hpp" namespace "wasabi":
     vector[uint32_t] triangulate64(const char*, size_t, Py_ssize_t, Py_ssize_t, const vector[uint32_t]&) except +
 
 cdef array.array _indices = array.array('I')
+if _indices.itemsize != sizeof(uint32_t):
+    raise ImportError('Earstrip requires a 32-bit unsigned int array type')
 
 
 def triangulate(vertices, ring_ends=None):
