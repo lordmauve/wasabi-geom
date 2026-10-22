@@ -2,6 +2,7 @@
 *.swp
 /wasabigeom.html
 /wasabigeom.c
+/_wasabi_earstrip.cpp
 /build/
 /dist/
 /venv/

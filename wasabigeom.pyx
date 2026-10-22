@@ -1,6 +1,8 @@
 #cython: language_level=3, c_api_binop_methods=True
 
 cimport cython
+
+from _wasabi_earstrip import triangulate
 from libc.math cimport sqrt, atan2, cos, sin, floor, pi, asin, acos, ceil
 from libc.stdlib cimport llabs
 from libc.stdint cimport int64_t, uint64_t
