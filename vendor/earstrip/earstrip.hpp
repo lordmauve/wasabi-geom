@@ -80,7 +80,19 @@ inline uint32_t lowestBit(uint64_t v)
 {
 #if defined(_MSC_VER) && !defined(__clang__)
     unsigned long i;
+#    if defined(_M_X64) || defined(_M_ARM64)
     _BitScanForward64(&i, v);
+#    else
+    // Local portability patch: 32-bit MSVC has no _BitScanForward64.
+    // As with the intrinsic/builtin paths, v must be nonzero.
+    const unsigned long low = static_cast<unsigned long>(v);
+    if (low) {
+        _BitScanForward(&i, low);
+    } else {
+        _BitScanForward(&i, static_cast<unsigned long>(v >> 32));
+        i += 32;
+    }
+#    endif
     return (uint32_t)i;
 #else
     return (uint32_t)__builtin_ctzll(v);
